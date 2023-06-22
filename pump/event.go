@@ -3,8 +3,11 @@ package pump
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
+	"strings"
+	"time"
 
 	"github.com/curtisnewbie/gocommon/common"
 	red "github.com/curtisnewbie/gocommon/redis"
@@ -45,14 +48,50 @@ func init() {
 
 type ChangeType string
 
+type Record struct {
+	Before []interface{}
+	After  []interface{}
+}
+
 type DataChangeEvent struct {
+	Time      time.Time
 	Timestamp uint32
 	Schema    string
 	Table     string
 	Type      ChangeType
+	Records   []Record
 	Columns   []string
-	Before    []interface{}
-	After     []interface{}
+}
+
+func (d DataChangeEvent) String() string {
+	rs := []string{}
+	for _, r := range d.Records {
+		rs = append(rs, d.PrintRecord(r))
+	}
+	joinedRecords := strings.Join(rs, ", ")
+	return fmt.Sprintf("DataChangeEvent{ Timestamp: %v (%s), Schema: %v, Table: %v, Type: %v, Records: [ %v ] }",
+		d.Timestamp, d.Time, d.Schema, d.Table, d.Type, joinedRecords)
+}
+
+func (d DataChangeEvent) PrintRecord(r Record) string {
+	bef := d.rowToStr(r.Before)
+	aft := d.rowToStr(r.After)
+	return fmt.Sprintf("{ before: %v, after: %v }", bef, aft)
+}
+
+func (d DataChangeEvent) getColName(j int) string {
+	if j < len(d.Columns) {
+		return d.Columns[j]
+	}
+	return ""
+}
+
+func (d DataChangeEvent) rowToStr(row []interface{}) string {
+	sl := []string{}
+	for i, v := range row {
+		sl = append(sl, fmt.Sprintf("%v:%v", d.getColName(i), v))
+	}
+	return "{ " + strings.Join(sl, ", ") + " }"
 }
 
 type EventHandler func(c common.ExecContext, dce DataChangeEvent) error
@@ -61,86 +100,84 @@ func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
 }
 
+func newDataChangeEvent(ev *replication.BinlogEvent, re *replication.RowsEvent) DataChangeEvent {
+	table := re.Table
+	schemaName := string(table.Schema)
+	tableName := string(table.Table)
+	return DataChangeEvent{
+		Timestamp: ev.Header.Timestamp,
+		Schema:    schemaName,
+		Table:     tableName,
+		Time:      time.Unix(int64(ev.Header.Timestamp), 0),
+		Columns:   re.Table.ColumnNameString(),
+		Records:   []Record{},
+	}
+}
+
 func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) error {
 	isProd := common.IsProdMode()
 
 	for {
 		ev, err := streamer.GetEvent(c.Ctx)
 		if err != nil {
-			continue
-		}
-
-		if server.IsShuttingDown() {
-			return nil
+			continue // retry GetEvent
 		}
 
 		// Must run `set global binlog_row_metadata=FULL;` to include all metadata like column names and so on
 		// https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
 
 		eventType := ev.Header.EventType
-		c.Log.Infof("EventType: %v, event: %v", eventType, reflect.TypeOf(ev.Event))
+		c.Log.Debugf("EventType: %v, event: %v", eventType, reflect.TypeOf(ev.Event))
 
 		switch eventType {
 
 		case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				table := re.Table
-				schemaName := string(table.Schema)
-				tableName := string(table.Table)
-
-				columns := table.ColumnNameString()
+				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangeEvent{
-						Timestamp: ev.Header.Timestamp,
-						Schema:    schemaName,
-						Table:     tableName,
-						Type:      TYPE_UPDATE,
-						Columns:   columns,
-					}
+					dce := newDataChangeEvent(ev, re)
+					dce.Type = TYPE_UPDATE
+					rec := Record{}
 
 					// N is before, N + 1 is after
 					for i, row := range re.Rows {
 						before := (i+1)%2 != 0
-
-						r := append([]interface{}{}, row...)
-
 						if before {
-							dce.Before = r
+							rec.Before = row
 						} else {
-							dce.After = r
-
-							// invoke handler
-							for _, handle := range handlers {
-								if e := handle(c, dce); e != nil {
-									return e
-								}
-							}
+							rec.After = row
+							dce.Records = append(dce.Records, rec)
+							rec = Record{}
 						}
 					}
+
+					// invoke handler
+					for _, handle := range handlers {
+						if e := handle(c, dce); e != nil {
+							return e
+						}
+					}
+
 				}
 			}
 
 		case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				table := re.Table
-				schemaName := string(table.Schema)
-				tableName := string(table.Table)
-
-				columns := table.ColumnNameString()
+				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangeEvent{
-						Timestamp: ev.Header.Timestamp,
-						Schema:    schemaName,
-						Table:     tableName,
-						Type:      TYPE_INSERT,
-						Columns:   columns,
-						After:     append([]interface{}{}, re.Rows[0]...),
+					dce := newDataChangeEvent(ev, re)
+					dce.Type = TYPE_INSERT
+
+					for _, row := range re.Rows {
+						dce.Records = append(dce.Records, Record{
+							After: row,
+						})
 					}
 
 					// invoke handler
@@ -153,22 +190,18 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 			}
 		case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				table := re.Table
-				schemaName := string(table.Schema)
-				tableName := string(table.Table)
-
-				columns := table.ColumnNameString()
+				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangeEvent{
-						Timestamp: ev.Header.Timestamp,
-						Schema:    schemaName,
-						Table:     tableName,
-						Type:      TYPE_DELETE,
-						Columns:   columns,
-						Before:    append([]interface{}{}, re.Rows[0]...),
+					dce := newDataChangeEvent(ev, re)
+					dce.Type = TYPE_DELETE
+
+					for _, row := range re.Rows {
+						dce.Records = append(dce.Records, Record{
+							Before: row,
+						})
 					}
 
 					// invoke handler
@@ -198,9 +231,13 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 		}
 
 		curr := mysql.Position{Name: logFileName, Pos: logPos}
-		c.Log.Infof(">>> Curr Pos: %+v, eventType: %v", curr, eventType)
+		c.Log.Infof("Curr Pos: %+v, eventType: %v", curr, eventType)
 		if e := updatePos(curr); e != nil {
 			return e
+		}
+
+		if server.IsShuttingDown() {
+			return nil
 		}
 	}
 }
