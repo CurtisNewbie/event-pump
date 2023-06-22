@@ -1,0 +1,41 @@
+mode.production: false
+app.name: 'event-pump'
+
+server:
+  host: "0.0.0.0"
+  port: 8087
+  gracefulShutdownTimeSec: 5
+  perf.enabled: false
+
+mysql:
+  enabled: false
+  user: root
+  host: localhost
+  port: 3306
+
+consul:
+  enabled: true
+  consulAddress: localhost:8500
+
+redis:
+  enabled: true
+  address: localhost
+  port: 6379
+  database: 0
+
+rabbitmq:
+  enabled: true
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+  vhost: "/"
+
+tracing.propagation.keys:
+  - id
+  - userno
+  - username
+  - role
+  - roleno
+
+goauth.client.enabled: false

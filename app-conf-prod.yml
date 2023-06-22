@@ -1,0 +1,49 @@
+mode.production: true
+
+app.name: "event-pump"
+
+mysql:
+  enabled: false
+  user: "${mysqlusername}"
+  password: "${mysqlpassword}"
+  database: "event_pump"
+  host: "${mysqladdr}"
+  port: 3306
+
+redis:
+  enabled: true
+  address: "redis"
+  port: 6379
+  username:
+  password:
+  database: 0
+
+server:
+  host: "0.0.0.0"
+  port: 8087
+  gracefulShutdownTimeSec: 5
+  perf.enabled: false
+
+consul:
+  enabled: true
+  consulAddress: consul:8500
+  healthCheckUrl: /health
+
+rabbitmq:
+  enabled: true
+  host: "rabbitmq"
+  port: 5672
+  username: "${rabbitmqusername}"
+  password: "${rabbitmqpassword}"
+  vhost: "/"
+
+tracing.propagation.keys:
+  - id
+  - userno
+  - username
+  - role
+  - roleno
+
+logging.rolling.file: "/usr/src/logs/${app.name}.log"
+
+goauth.report.enabled: true
