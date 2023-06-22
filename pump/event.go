@@ -45,7 +45,7 @@ func init() {
 
 type ChangeType string
 
-type DataChangEvent struct {
+type DataChangeEvent struct {
 	Timestamp uint32
 	Schema    string
 	Table     string
@@ -55,7 +55,7 @@ type DataChangEvent struct {
 	After     []interface{}
 }
 
-type EventHandler func(c common.ExecContext, dce DataChangEvent) error
+type EventHandler func(c common.ExecContext, dce DataChangeEvent) error
 
 func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
@@ -93,7 +93,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangEvent{
+					dce := DataChangeEvent{
 						Timestamp: ev.Header.Timestamp,
 						Schema:    schemaName,
 						Table:     tableName,
@@ -134,7 +134,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangEvent{
+					dce := DataChangeEvent{
 						Timestamp: ev.Header.Timestamp,
 						Schema:    schemaName,
 						Table:     tableName,
@@ -162,7 +162,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
-					dce := DataChangEvent{
+					dce := DataChangeEvent{
 						Timestamp: ev.Header.Timestamp,
 						Schema:    schemaName,
 						Table:     tableName,

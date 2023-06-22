@@ -19,7 +19,7 @@ func PostServerBootstrap(c common.ExecContext) error {
 		return err
 	}
 
-	OnEventReceived(func(c common.ExecContext, dce DataChangEvent) error {
+	OnEventReceived(func(c common.ExecContext, dce DataChangeEvent) error {
 		// TODO: Add some streaming stuff, e.g., configuration
 		c.Log.Infof("Event: %+v", dce)
 		return nil
