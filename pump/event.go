@@ -100,6 +100,15 @@ func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
 }
 
+func callEventHandlers(c common.ExecContext, dce DataChangeEvent) error {
+	for _, handle := range handlers {
+		if e := handle(c, dce); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
 func newDataChangeEvent(ev *replication.BinlogEvent, re *replication.RowsEvent) DataChangeEvent {
 	table := re.Table
 	schemaName := string(table.Schema)
@@ -154,13 +163,9 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 						}
 					}
 
-					// invoke handler
-					for _, handle := range handlers {
-						if e := handle(c, dce); e != nil {
-							return e
-						}
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
 					}
-
 				}
 			}
 
@@ -180,11 +185,8 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 						})
 					}
 
-					// invoke handler
-					for _, handle := range handlers {
-						if e := handle(c, dce); e != nil {
-							return e
-						}
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
 					}
 				}
 			}
@@ -204,11 +206,8 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 						})
 					}
 
-					// invoke handler
-					for _, handle := range handlers {
-						if e := handle(c, dce); e != nil {
-							return e
-						}
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
 					}
 				}
 			}
