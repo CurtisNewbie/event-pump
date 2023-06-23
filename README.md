@@ -4,10 +4,23 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 
 - Tested on MySQL 8.0.23
 
+## Requirements
+
+- MySQL
+- Redis
+- Consul
+- RabbitMQ
+- [Goauth](https://github.com/CurtisNewbie/goauth)
+
 ## Configuration
 
 | Property           | Description                                                                                                                                         | Default Value |
 |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| sync.server-id     | server-id used to mimic a replication server                                                                                                        | 100           |
+| sync.user          | username of the master MySQL instance                                                                                                               | root          |
+| sync.password      | password of the master MySQL instance                                                                                                               |               |
+| sync.host          | host of the master MySQL instance                                                                                                                   | 127.0.0.1     |
+| sync.port          | port of the master MySQL instance                                                                                                                   | 3306          |
 | []pipeline         | list of pipeline config                                                                                                                             |               |
 | []pipeline.schema  | regexp for matching schema name                                                                                                                     |               |
 | []pipeline.table   | regexp for matching table name                                                                                                                      |               |
