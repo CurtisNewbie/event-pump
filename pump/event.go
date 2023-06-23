@@ -132,7 +132,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 			continue // retry GetEvent
 		}
 
-		// Must run `set global binlog_row_metadata=FULL;` to include all metadata like column names and so on
+		// Must run `set global binlog_row_metadata=FULL;` or configure it in option file to include all metadata like column names and so on
 		// https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
 
 		eventType := ev.Header.EventType
@@ -144,7 +144,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
 				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
-					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
+					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
 					dce := newDataChangeEvent(ev, re)
@@ -173,7 +173,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
 				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
-					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
+					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
 					dce := newDataChangeEvent(ev, re)
@@ -194,7 +194,7 @@ func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) erro
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
 				columns := re.Table.ColumnNameString()
 				if len(columns) < 1 {
-					c.Log.Errorf("Binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
+					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
 				} else {
 
 					dce := newDataChangeEvent(ev, re)
