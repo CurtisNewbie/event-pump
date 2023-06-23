@@ -10,9 +10,11 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 - Redis
 - Consul
 - RabbitMQ
-- [Goauth](https://github.com/CurtisNewbie/goauth)
+- [Goauth](https://github.com/CurtisNewbie/goauth) (optional)
 
 ## Configuration
+
+For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommon).
 
 | Property           | Description                                                                                                                                         | Default Value |
 |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
