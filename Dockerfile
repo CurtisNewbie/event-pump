@@ -3,11 +3,12 @@ LABEL author="Yongjie Zhuang"
 LABEL descrption="Event-Pump: simple app to parse and stream MySQL binlog event in real time"
 
 RUN apk --no-cache add tzdata
+RUN apk --no-cache add git
 WORKDIR /go/src/build/
 
 # for golang env
 RUN go env -w GO111MODULE=on
-RUN go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct
+RUN go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,https://goproxy.cn/
 
 # dependencies
 COPY go.mod .
