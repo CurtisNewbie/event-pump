@@ -2,13 +2,7 @@ mode.production: true
 
 app.name: "event-pump"
 
-mysql:
-  enabled: false
-  user: "${mysqlusername}"
-  password: "${mysqlpassword}"
-  database: "event_pump"
-  host: "${mysqladdr}"
-  port: 3306
+mysql.enabled: false
 
 redis:
   enabled: true
@@ -47,3 +41,10 @@ tracing.propagation.keys:
 logging.rolling.file: "/usr/src/logs/${app.name}.log"
 
 goauth.report.enabled: true
+
+sync:
+  server-id: 100
+  user: "${mysqlusername}"
+  password: "${mysqlpassword}"
+  host: "${mysqladdr}"
+  port: 3306

@@ -7,11 +7,7 @@ server:
   gracefulShutdownTimeSec: 5
   perf.enabled: false
 
-mysql:
-  enabled: false
-  user: root
-  host: localhost
-  port: 3306
+mysql.enabled: false
 
 consul:
   enabled: true
@@ -39,3 +35,10 @@ tracing.propagation.keys:
   - roleno
 
 goauth.client.enabled: false
+
+sync:
+  server-id: 100
+  host: localhost
+  port: 3306
+  user: root
+  password:

@@ -5,24 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/curtisnewbie/gocommon/common"
+	mys "github.com/curtisnewbie/gocommon/mysql"
 	red "github.com/curtisnewbie/gocommon/redis"
 	"github.com/curtisnewbie/gocommon/server"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-redis/redis"
+	"gorm.io/gorm"
 )
 
 const (
-	PROP_SYNC_SERVER_ID = "prop.sync.server-id"
-	PROP_SYNC_HOST      = "prop.sync.host"
-	PROP_SYNC_PORT      = "prop.sync.port"
-	PROP_SYNC_USER      = "prop.sync.user"
-	PROP_SYNC_PASSWORD  = "prop.sync.password"
+	PROP_SYNC_SERVER_ID = "sync.server-id"
+	PROP_SYNC_HOST      = "sync.host"
+	PROP_SYNC_PORT      = "sync.port"
+	PROP_SYNC_USER      = "sync.user"
+	PROP_SYNC_PASSWORD  = "sync.password"
 
 	flavorMysql = "mysql"
 
@@ -34,8 +35,10 @@ const (
 )
 
 var (
-	logFileName = ""
-	handlers    = []EventHandler{}
+	logFileName           = ""
+	handlers              = []EventHandler{}
+	tableInfoMap          = make(map[string]TableInfo)
+	conn         *gorm.DB = nil
 )
 
 func init() {
@@ -109,139 +112,194 @@ func callEventHandlers(c common.ExecContext, dce DataChangeEvent) error {
 	return nil
 }
 
-func newDataChangeEvent(ev *replication.BinlogEvent, re *replication.RowsEvent) DataChangeEvent {
-	table := re.Table
-	schemaName := string(table.Schema)
-	tableName := string(table.Table)
+func newDataChangeEvent(table TableInfo, re *replication.RowsEvent, timestamp uint32) DataChangeEvent {
+	cn := []string{}
+	for _, ci := range table.Columns {
+		cn = append(cn, ci.ColumnName)
+	}
 	return DataChangeEvent{
-		Timestamp: ev.Header.Timestamp,
-		Schema:    schemaName,
-		Table:     tableName,
-		Time:      time.Unix(int64(ev.Header.Timestamp), 0),
-		Columns:   re.Table.ColumnNameString(),
+		Timestamp: timestamp,
+		Schema:    table.Schema,
+		Table:     table.Table,
+		Time:      time.Unix(int64(timestamp), 0),
 		Records:   []Record{},
+		Columns:   cn,
 	}
 }
 
-func PumpEvents(c common.ExecContext, streamer *replication.BinlogStreamer) error {
+type TableInfo struct {
+	Schema  string
+	Table   string
+	Columns []ColumnInfo
+}
+
+type ColumnInfo struct {
+	ColumnName      string `gorm:"column:COLUMN_NAME"`
+	DataType        string `gorm:"column:DATA_TYPE"`
+	OrdinalPosition int    `gorm:"column:ORDINAL_POSITION"`
+}
+
+func FetchTableInfo(c common.ExecContext, schema string, table string) (TableInfo, error) {
+	var columns []ColumnInfo
+	e := conn.
+		Table("information_schema.columns").
+		Select("column_name, ordinal_position, data_type").
+		Where("table_schema = ? AND table_name = ?", schema, table).
+		Order("ordinal_position asc").
+		Scan(&columns).Error
+	return TableInfo{Table: table, Schema: schema, Columns: columns}, e
+}
+
+func ResetTableInfoCache(c common.ExecContext, schema string, table string) {
+	k := schema + "." + table
+	delete(tableInfoMap, k)
+	c.Log.Infof("Reset TableInfo cache, %v.%v", schema, table)
+}
+
+func CachedTableInfo(c common.ExecContext, schema string, table string) (TableInfo, error) {
+	k := schema + "." + table
+	ti, ok := tableInfoMap[k]
+	if ok {
+		return ti, nil
+	}
+
+	fti, e := FetchTableInfo(c, schema, table)
+	if e != nil {
+		return TableInfo{}, e
+	}
+
+	tableInfoMap[k] = fti
+	return fti, nil
+}
+
+func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
 	isProd := common.IsProdMode()
 
 	for {
 		ev, err := streamer.GetEvent(c.Ctx)
 		if err != nil {
+			c.Log.Errorf("GetEvent returned error, %v", err)
 			continue // retry GetEvent
 		}
+		if !isProd {
+			ev.Dump(os.Stdout)
+		}
 
-		// Must run `set global binlog_row_metadata=FULL;` or configure it in option file to include all metadata like column names and so on
-		// https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
+		/*
+			We are using Table.ColumnNameString() to resolve the actual column names, the column names are actually
+			fetched from the master instance using simple queries.
 
-		eventType := ev.Header.EventType
-		c.Log.Debugf("EventType: %v, event: %v", eventType, reflect.TypeOf(ev.Event))
+			e.g.,
 
-		switch eventType {
+				ev.Event.(*replication.RowsEvent).Table.ColumnNameString()
+
+			It's not very useful, it requires `binlog_row_metadata=FULL` and MySQL >= 8.0
+
+			https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
+		*/
+
+		switch ev.Header.EventType {
+
+		case replication.TABLE_MAP_EVENT:
+
+			// the table may be changed, reset the cache
+			if tme, ok := ev.Event.(*replication.TableMapEvent); ok {
+				ResetTableInfoCache(c, string(tme.Schema), string(tme.Table))
+			}
+			continue
 
 		case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
+
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				columns := re.Table.ColumnNameString()
-				if len(columns) < 1 {
-					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
-				} else {
+				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+				if e != nil {
+					return e
+				}
 
-					dce := newDataChangeEvent(ev, re)
-					dce.Type = TYPE_UPDATE
-					rec := Record{}
+				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+				dce.Type = TYPE_UPDATE
+				rec := Record{}
 
-					// N is before, N + 1 is after
-					for i, row := range re.Rows {
-						before := (i+1)%2 != 0
-						if before {
-							rec.Before = row
-						} else {
-							rec.After = row
-							dce.Records = append(dce.Records, rec)
-							rec = Record{}
-						}
+				// N is before, N + 1 is after
+				for i, row := range re.Rows {
+					before := (i+1)%2 != 0
+					if before {
+						rec.Before = row
+					} else {
+						rec.After = row
+						dce.Records = append(dce.Records, rec)
+						rec = Record{}
 					}
+				}
 
-					if e := callEventHandlers(c, dce); e != nil {
-						return e
-					}
+				if e := callEventHandlers(c, dce); e != nil {
+					return e
 				}
 			}
 
 		case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				columns := re.Table.ColumnNameString()
-				if len(columns) < 1 {
-					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
-				} else {
+				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+				if e != nil {
+					return e
+				}
 
-					dce := newDataChangeEvent(ev, re)
-					dce.Type = TYPE_INSERT
+				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+				dce.Type = TYPE_INSERT
 
-					for _, row := range re.Rows {
-						dce.Records = append(dce.Records, Record{
-							After: row,
-						})
-					}
+				for _, row := range re.Rows {
+					dce.Records = append(dce.Records, Record{After: row})
+				}
 
-					if e := callEventHandlers(c, dce); e != nil {
-						return e
-					}
+				if e := callEventHandlers(c, dce); e != nil {
+					return e
 				}
 			}
 		case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				columns := re.Table.ColumnNameString()
-				if len(columns) < 1 {
-					return fmt.Errorf("binlog doesn't provide FULL metadata, unable to parse it, %+v", re)
-				} else {
+				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+				if e != nil {
+					return e
+				}
+				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+				dce.Type = TYPE_DELETE
 
-					dce := newDataChangeEvent(ev, re)
-					dce.Type = TYPE_DELETE
+				for _, row := range re.Rows {
+					dce.Records = append(dce.Records, Record{Before: row})
+				}
 
-					for _, row := range re.Rows {
-						dce.Records = append(dce.Records, Record{
-							Before: row,
-						})
-					}
-
-					if e := callEventHandlers(c, dce); e != nil {
-						return e
-					}
+				if e := callEventHandlers(c, dce); e != nil {
+					return e
 				}
 			}
-		}
-
-		if !isProd {
-			ev.Dump(os.Stdout)
 		}
 
 		if _, ok := ev.Event.(*replication.FormatDescriptionEvent); ok {
 			continue // it doesn't have position at all, LogPos is always 0
 		}
 
-		logPos := ev.Header.LogPos
-
 		// for RotateEvent, LogPosition can be 0, have to use Position instead
+		logPos := ev.Header.LogPos
 		if re, ok := ev.Event.(*replication.RotateEvent); ok {
 			logPos = uint32(re.Position)
 			logFileName = string(re.NextLogName)
 		}
 
-		curr := mysql.Position{Name: logFileName, Pos: logPos}
-		c.Log.Infof("Curr Pos: %+v, eventType: %v", curr, eventType)
-		if e := updatePos(curr); e != nil {
+		// update position on redis
+		if e := updatePos(c, mysql.Position{Name: logFileName, Pos: logPos}); e != nil {
 			return e
 		}
 
 		if server.IsShuttingDown() {
+			c.Log.Info("Server shutting down")
 			return nil
 		}
 	}
 }
 
-func updatePos(pos mysql.Position) error {
+func updatePos(c common.ExecContext, pos mysql.Position) error {
+	c.Log.Infof("Curr Pos: %+v", pos)
 	s, e := json.Marshal(&pos)
 	if e != nil {
 		return e
@@ -284,7 +342,7 @@ func NewStreamer(c common.ExecContext, syncer *replication.BinlogSyncer) (*repli
 	return syncer.StartSync(pos)
 }
 
-func NewSyncer(c common.ExecContext) (*replication.BinlogSyncer, error) {
+func PrepareSync(c common.ExecContext) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
 		ServerID: uint32(common.GetPropInt(PROP_SYNC_SERVER_ID)),
 		Flavor:   flavorMysql,
@@ -294,5 +352,22 @@ func NewSyncer(c common.ExecContext) (*replication.BinlogSyncer, error) {
 		Password: common.GetPropStr(PROP_SYNC_PASSWORD),
 		Logger:   c.Log,
 	}
+
+	client, err := mys.NewConn(
+		common.GetPropStr(PROP_SYNC_USER),
+		common.GetPropStr(PROP_SYNC_PASSWORD),
+		"",
+		common.GetPropStr(PROP_SYNC_HOST),
+		common.GetPropStr(PROP_SYNC_PORT),
+		"",
+	)
+	if err != nil {
+		return nil, err
+	}
+	conn = client
+	if !common.IsProdMode() {
+		conn = conn.Debug()
+	}
+
 	return replication.NewBinlogSyncer(cfg), nil
 }
