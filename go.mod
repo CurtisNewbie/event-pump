@@ -6,6 +6,7 @@ require (
 	github.com/curtisnewbie/gocommon v1.0.13-0.20230622091812-fc70286ad472
 	github.com/go-mysql-org/go-mysql v1.7.0
 	github.com/go-redis/redis v6.15.9+incompatible
+	gorm.io/gorm v1.23.8
 )
 
 require (
@@ -70,5 +71,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.6 // indirect
-	gorm.io/gorm v1.23.8 // indirect
 )
