@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/curtisnewbie/gocommon/common"
 	mys "github.com/curtisnewbie/gocommon/mysql"
@@ -29,9 +28,9 @@ const (
 
 	lastPosKey = "event-pump:pos:last"
 
-	TYPE_INSERT ChangeType = "INS"
-	TYPE_UPDATE ChangeType = "UPD"
-	TYPE_DELETE ChangeType = "DEL"
+	TYPE_INSERT = "INS"
+	TYPE_UPDATE = "UPD"
+	TYPE_DELETE = "DEL"
 )
 
 var (
@@ -49,21 +48,23 @@ func init() {
 	common.SetDefProp(PROP_SYNC_PASSWORD, "")
 }
 
-type ChangeType string
-
 type Record struct {
-	Before []interface{}
-	After  []interface{}
+	Before []interface{} `json:"before"`
+	After  []interface{} `json:"after"`
 }
 
 type DataChangeEvent struct {
-	Time      time.Time
-	Timestamp uint32
-	Schema    string
-	Table     string
-	Type      ChangeType
-	Records   []Record
-	Columns   []string
+	Timestamp uint32         `json:"timestamp"`
+	Schema    string         `json:"schema"`
+	Table     string         `json:"table"`
+	Type      string         `json:"type"` // INS-INSERT, UPD-UPDATE, DEL-DELETE
+	Records   []Record       `json:"records"`
+	Columns   []RecordColumn `json:"columns"`
+}
+
+type RecordColumn struct {
+	Name     string `json:"name"`
+	DataType string `json:"dataType"`
 }
 
 func (d DataChangeEvent) String() string {
@@ -72,8 +73,8 @@ func (d DataChangeEvent) String() string {
 		rs = append(rs, d.PrintRecord(r))
 	}
 	joinedRecords := strings.Join(rs, ", ")
-	return fmt.Sprintf("DataChangeEvent{ Timestamp: %v (%s), Schema: %v, Table: %v, Type: %v, Records: [ %v ] }",
-		d.Timestamp, d.Time, d.Schema, d.Table, d.Type, joinedRecords)
+	return fmt.Sprintf("DataChangeEvent{ Timestamp: %v, Schema: %v, Table: %v, Type: %v, Records: [ %v ] }",
+		d.Timestamp, d.Schema, d.Table, d.Type, joinedRecords)
 }
 
 func (d DataChangeEvent) PrintRecord(r Record) string {
@@ -84,7 +85,7 @@ func (d DataChangeEvent) PrintRecord(r Record) string {
 
 func (d DataChangeEvent) getColName(j int) string {
 	if j < len(d.Columns) {
-		return d.Columns[j]
+		return d.Columns[j].Name
 	}
 	return ""
 }
@@ -98,6 +99,10 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 }
 
 type EventHandler func(c common.ExecContext, dce DataChangeEvent) error
+
+func HasAnyEventHandler() bool {
+	return len(handlers) > 0
+}
 
 func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
@@ -113,15 +118,14 @@ func callEventHandlers(c common.ExecContext, dce DataChangeEvent) error {
 }
 
 func newDataChangeEvent(table TableInfo, re *replication.RowsEvent, timestamp uint32) DataChangeEvent {
-	cn := []string{}
+	cn := []RecordColumn{}
 	for _, ci := range table.Columns {
-		cn = append(cn, ci.ColumnName)
+		cn = append(cn, RecordColumn{Name: ci.ColumnName, DataType: ci.DataType})
 	}
 	return DataChangeEvent{
 		Timestamp: timestamp,
 		Schema:    table.Schema,
 		Table:     table.Table,
-		Time:      time.Unix(int64(timestamp), 0),
 		Records:   []Record{},
 		Columns:   cn,
 	}

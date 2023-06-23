@@ -42,3 +42,9 @@ sync:
   port: 3306
   user: root
   password:
+
+# pipeline:
+#   - schema: '.*'
+#     table: '.*'
+#     stream: 'data-change.echo'
+#     enabled: true
