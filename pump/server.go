@@ -18,13 +18,11 @@ var (
 
 func PreServerBootstrap(c common.ExecContext) error {
 
-	/*
-		// For testing
-		bus.SubscribeEventBus("data-change.echo", 1, func(dce DataChangeEvent) error {
-			c.Log.Infof("Receieved: %+v", dce)
-			return nil
-		})
-	*/
+	// For testing
+	// bus.SubscribeEventBus("data-change.echo", 1, func(dce DataChangeEvent) error {
+	// 	c.Log.Infof("Receieved: %+v", dce)
+	// 	return nil
+	// })
 
 	pipelineConfig := LoadPipelines()
 	c.Log.Infof("pipeline config: %+v", pipelineConfig)
@@ -40,20 +38,31 @@ func PreServerBootstrap(c common.ExecContext) error {
 
 		schemaPattern := regexp.MustCompile(pipeline.Schema)
 		tablePattern := regexp.MustCompile(pipeline.Table)
+		var typePattern *regexp.Regexp
+		if pipeline.Type != "" {
+			typePattern = regexp.MustCompile(pipeline.Type)
+		}
 
 		// Declare Stream
 		bus.DeclareEventBus(pipeline.Stream)
 
 		OnEventReceived(func(c common.ExecContext, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
+				c.Log.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
 				return nil
 			}
 			if !tablePattern.MatchString(dce.Table) {
+				c.Log.Debugf("table pattern not matched, event ignored, %v", dce.Table)
+				return nil
+			}
+			if typePattern != nil && !typePattern.MatchString(dce.Type) {
+				c.Log.Debugf("type pattern not matched, event ignored, %v", dce.Type)
 				return nil
 			}
 			return bus.SendToEventBus(dce, pipeline.Stream)
 		})
-		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v'", pipeline.Schema, pipeline.Table)
+		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v', type pattern: '%v'",
+			pipeline.Schema, pipeline.Table, pipeline.Type)
 	}
 
 	return nil

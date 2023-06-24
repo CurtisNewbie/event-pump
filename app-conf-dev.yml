@@ -44,5 +44,6 @@ sync:
 # pipeline:
 #   - schema: '.*'
 #     table: '.*'
+#     type: '(INS|UPD)'
 #     stream: 'data-change.echo'
 #     enabled: true

@@ -7,6 +7,7 @@ import (
 type Pipeline struct {
 	Schema  string
 	Table   string
+	Type    string
 	Stream  string
 	Enabled bool
 }

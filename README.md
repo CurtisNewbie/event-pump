@@ -26,6 +26,7 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 | []pipeline         | list of pipeline config                                                                                                                             |               |
 | []pipeline.schema  | regexp for matching schema name                                                                                                                     |               |
 | []pipeline.table   | regexp for matching table name                                                                                                                      |               |
+| []pipeline.type    | regexp for matching event type (optional)                                                                                                           |               |
 | []pipeline.stream  | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `"event.bus." + ${pipeline.stream}` using routing key `'#'`) |               |
 | []pipeline.enabled | whether it's enabled                                                                                                                                |               |
 
@@ -36,6 +37,7 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 pipeline:
   - schema: '.*'
     table: '.*'
+    type: '(INS|UPD)'
     stream: 'data-change.echo'
     enabled: true
 ```
