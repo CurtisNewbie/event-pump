@@ -190,7 +190,7 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 		}
 
 		/*
-			We are using Table.ColumnNameString() to resolve the actual column names, the column names are actually
+			We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually
 			fetched from the master instance using simple queries.
 
 			e.g.,
