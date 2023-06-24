@@ -42,7 +42,7 @@ pipeline:
 
 ## Event Struct
 
-The event can be unmarshalled using following structs:
+The event can be unmarshalled (from json) using following structs:
 
 ```go
 type Record struct {

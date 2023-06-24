@@ -7,8 +7,6 @@ server:
   gracefulShutdownTimeSec: 5
   perf.enabled: false
 
-mysql.enabled: false
-
 consul:
   enabled: true
   consulAddress: localhost:8500
