@@ -23,6 +23,8 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 | sync.password      | password of the master MySQL instance                                                                                                               |               |
 | sync.host          | host of the master MySQL instance                                                                                                                   | 127.0.0.1     |
 | sync.port          | port of the master MySQL instance                                                                                                                   | 3306          |
+| filter.include     | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                          |               |
+| filter.exclude     | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter    |               |
 | []pipeline         | list of pipeline config                                                                                                                             |               |
 | []pipeline.schema  | regexp for matching schema name                                                                                                                     |               |
 | []pipeline.table   | regexp for matching table name                                                                                                                      |               |

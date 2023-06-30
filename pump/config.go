@@ -12,12 +12,18 @@ type Pipeline struct {
 	Enabled bool
 }
 
-type PipelineConfig struct {
-	Pipelines []Pipeline `mapstructure:"pipeline"`
+type GlobalFilter struct {
+	Include string
+	Exclude string
 }
 
-func LoadPipelines() PipelineConfig {
-	var conf PipelineConfig
+type EventPumpConfig struct {
+	Filter    GlobalFilter `mapstructure:"filter"`
+	Pipelines []Pipeline   `mapstructure:"pipeline"`
+}
+
+func LoadConfig() EventPumpConfig {
+	var conf EventPumpConfig
 	common.UnmarshalFromProp(&conf)
 	return conf
 }

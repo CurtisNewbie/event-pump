@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/curtisnewbie/gocommon/common"
@@ -38,6 +39,9 @@ var (
 	handlers              = []EventHandler{}
 	tableInfoMap          = make(map[string]TableInfo)
 	conn         *gorm.DB = nil
+
+	_globalInclude *regexp.Regexp = nil
+	_globalExclude *regexp.Regexp = nil
 )
 
 func init() {
@@ -200,6 +204,8 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 			It's not very useful, it requires `binlog_row_metadata=FULL` and MySQL >= 8.0
 
 			https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
+
+			TODO: The code is quite redundant, refactor it
 		*/
 
 		switch ev.Header.EventType {
@@ -215,7 +221,13 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 		case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+
+				schema := string(re.Table.Schema)
+				if !includeSchema(schema) {
+					goto event_handle_end
+				}
+
+				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
 				if e != nil {
 					return e
 				}
@@ -244,7 +256,13 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 		case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
 
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+
+				schema := string(re.Table.Schema)
+				if !includeSchema(schema) {
+					goto event_handle_end
+				}
+
+				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
 				if e != nil {
 					return e
 				}
@@ -262,7 +280,12 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 			}
 		case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
 			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				tableInfo, e := CachedTableInfo(c, string(re.Table.Schema), string(re.Table.Table))
+				schema := string(re.Table.Schema)
+				if !includeSchema(schema) {
+					goto event_handle_end
+				}
+
+				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
 				if e != nil {
 					return e
 				}
@@ -278,6 +301,12 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 				}
 			}
 		}
+
+	// end of event handling, we are mainly handling log pos here
+	event_handle_end:
+
+		// TODO: If we exit in the middle of somewhere of the binlog, it cannot rotate to the previous pos any more on the next startup
+		// 	maybe we shouldn't update the pos whenever we can, think about when we should really move the pos?
 
 		if _, ok := ev.Event.(*replication.FormatDescriptionEvent); ok {
 			continue // it doesn't have position at all, LogPos is always 0
@@ -374,4 +403,22 @@ func PrepareSync(c common.ExecContext) (*replication.BinlogSyncer, error) {
 	}
 
 	return replication.NewBinlogSyncer(cfg), nil
+}
+
+func includeSchema(schema string) bool {
+	if _globalExclude != nil && _globalExclude.MatchString(schema) { // exclude specified and matched
+		return false
+	}
+	if _globalInclude != nil && !_globalInclude.MatchString(schema) { // include specified, but doesn't match
+		return false
+	}
+	return true
+}
+
+func SetGlobalInclude(r *regexp.Regexp) {
+	_globalInclude = r
+}
+
+func SetGlobalExclude(r *regexp.Regexp) {
+	_globalExclude = r
 }

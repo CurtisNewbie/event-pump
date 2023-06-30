@@ -24,10 +24,18 @@ func PreServerBootstrap(c common.ExecContext) error {
 	// 	return nil
 	// })
 
-	pipelineConfig := LoadPipelines()
-	c.Log.Infof("pipeline config: %+v", pipelineConfig)
+	config := LoadConfig()
+	c.Log.Debugf("Config: %+v", config)
 
-	for _, pipeline := range pipelineConfig.Pipelines {
+	if config.Filter.Include != "" {
+		SetGlobalInclude(regexp.MustCompile(config.Filter.Include))
+	}
+
+	if config.Filter.Exclude != "" {
+		SetGlobalExclude(regexp.MustCompile(config.Filter.Exclude))
+	}
+
+	for _, pipeline := range config.Pipelines {
 		if !pipeline.Enabled {
 			continue
 		}

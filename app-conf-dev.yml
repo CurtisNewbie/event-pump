@@ -41,6 +41,10 @@ sync:
   user: root
   password:
 
+filter:
+  include: '^test$'
+  exclude: ''
+
 # pipeline:
 #   - schema: '.*'
 #     table: '.*'
