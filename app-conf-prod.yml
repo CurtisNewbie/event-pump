@@ -46,3 +46,14 @@ sync:
   password: "${mysqlpassword}"
   host: "${mysqladdr}"
   port: 3306
+
+filter:
+  include: ''
+  exclude: ''
+
+# pipeline:
+#   - schema: '.*'
+#     table: '.*'
+#     type: '(INS|UPD)'
+#     stream: 'data-change.echo'
+#     enabled: true

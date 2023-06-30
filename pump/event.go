@@ -318,8 +318,15 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 			logPos = uint32(t.Position)
 			logFileName = string(t.NextLogName)
 
-		// QueryEvent if some DDL is executed
-		// the go-mysql-elasticsearch also update it's pos on XIDEvent
+		/*
+			- QueryEvent if some DDL is executed
+			- the go-mysql-elasticsearch also update it's pos on XIDEvent
+
+			according to the doc: "An XID event is generated for a commit of a transaction that modifies one or more tables of an XA-capable storage engine"
+			https://dev.mysql.com/doc/dev/mysql-server/latest/classXid__log__event.html
+
+			it does seems like it's the 2PC thing for between the server and innodb engine in binlog
+		*/
 		case *replication.QueryEvent, *replication.XIDEvent:
 			logPos = ev.Header.LogPos
 
