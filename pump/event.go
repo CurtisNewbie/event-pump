@@ -302,21 +302,30 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 			}
 		}
 
-	// end of event handling, we are mainly handling log pos here
+		// end of event handling, we are mainly handling log pos here
 	event_handle_end:
 
-		// TODO: If we exit in the middle of somewhere of the binlog, it cannot rotate to the previous pos any more on the next startup
-		// 	maybe we shouldn't update the pos whenever we can, think about when we should really move the pos?
+		// in most cases, lostPos is on event header
+		var logPos uint32
 
-		if _, ok := ev.Event.(*replication.FormatDescriptionEvent); ok {
-			continue // it doesn't have position at all, LogPos is always 0
-		}
+		// we don't always update pos on all events, even though some of them have position
+		// if we update whenever we can, we may end up being stuck somewhere the next time we
+		// startup the app again
+		switch t := ev.Event.(type) {
 
 		// for RotateEvent, LogPosition can be 0, have to use Position instead
-		logPos := ev.Header.LogPos
-		if re, ok := ev.Event.(*replication.RotateEvent); ok {
-			logPos = uint32(re.Position)
-			logFileName = string(re.NextLogName)
+		case *replication.RotateEvent:
+			logPos = uint32(t.Position)
+			logFileName = string(t.NextLogName)
+
+		// QueryEvent if some DDL is executed
+		// the go-mysql-elasticsearch also update it's pos on XIDEvent
+		case *replication.QueryEvent, *replication.XIDEvent:
+			logPos = ev.Header.LogPos
+
+		// this event shouldn't update our log pos
+		default:
+			continue
 		}
 
 		// update position on redis

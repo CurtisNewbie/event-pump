@@ -42,7 +42,7 @@ sync:
   password:
 
 filter:
-  include: '^test$'
+  include: ''
   exclude: ''
 
 # pipeline:
