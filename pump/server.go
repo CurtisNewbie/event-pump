@@ -19,7 +19,7 @@ var (
 func PreServerBootstrap(c common.ExecContext) error {
 
 	// For testing
-	// bus.SubscribeEventBus("data-change.echo", 1, func(dce DataChangeEvent) error {
+	// bus.SubscribeEventBus("data-change.echo", 1, func(dce StreamEvent) error {
 	// 	c.Log.Infof("Receieved: %+v", dce)
 	// 	return nil
 	// })
@@ -51,6 +51,9 @@ func PreServerBootstrap(c common.ExecContext) error {
 			typePattern = regexp.MustCompile(pipeline.Type)
 		}
 
+		// mapper for converting the event
+		mapper := NewMapper(pipeline.Type)
+
 		// Declare Stream
 		bus.DeclareEventBus(pipeline.Stream)
 
@@ -67,7 +70,21 @@ func PreServerBootstrap(c common.ExecContext) error {
 				c.Log.Debugf("type pattern not matched, event ignored, %v", dce.Type)
 				return nil
 			}
-			return bus.SendToEventBus(dce, pipeline.Stream)
+
+			// based on configuration, we may convert the dce to some sort of structure meaningful to the receiver
+			events, err := mapper.MapEvent(dce)
+			if err != nil {
+				return err
+			}
+
+			// dispatch event, one change event may be manified to multple events
+			// e.g., an update to multiple rows
+			for _, evt := range events {
+				if err := bus.SendToEventBus(evt, pipeline.Stream); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v', type pattern: '%v'",
 			pipeline.Schema, pipeline.Table, pipeline.Type)

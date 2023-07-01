@@ -33,9 +33,13 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 | []pipeline.enabled | whether it's enabled                                                                                                                                |               |
 
 
-## Example
+## Configuration Example
 
 ```yaml
+filter:
+  include: '^(mytable|another_table)$'
+  exclude: '^(system_table)$'
+
 pipeline:
   - schema: '.*'
     table: '.*'
@@ -44,9 +48,30 @@ pipeline:
     enabled: true
 ```
 
-## Event Struct
+## Streaming Event Structure
 
-The event can be unmarshalled (from json) using following structs:
+A data change event can be mapped to two kinds of data structure in JSON (and then pushed to the event pipeline):
+
+- `'stream'`
+- `'raw'`
+
+These are configured for each pipeline, the `'stream'` structure is the default.
+
+```yaml
+pipeline:
+  - schema: '.*'
+    table: '.*'
+    type: '(INS|UPD)'
+    stream: 'data-change.echo'
+    enabled: true
+	structure: 'stream'
+```
+
+### Raw Structure
+
+The raw event can be unmarshalled (from json) using following structs. Each event may contain multiple changes, if the changes are executed within the same transaction.
+
+It's less convenient for the receiver to use them, but event-pump pushes the events to downstream right away once they are parsed.
 
 ```go
 type Record struct {
@@ -66,5 +91,25 @@ type DataChangeEvent struct {
 type RecordColumn struct {
 	Name     string `json:"name"`
 	DataType string `json:"dataType"`
+}
+```
+
+### Stream Structure (Default)
+
+The raw event can be unmarshalled (from json) using following structs. Each event only contain changes to one single record, even though multiple records may be changed within the same transaction. But it's more natural to use this structure when the receiver wants to react to the event and do some business logic.
+
+```go
+type StreamEvent struct {
+	Timestamp uint32                       `json:"timestamp"`
+	Schema    string                       `json:"schema"`
+	Table     string                       `json:"table"`
+	Type      string                       `json:"type"`    // INS-INSERT, UPD-UPDATE, DEL-DELETE
+	Columns   map[string]StreamEventColumn `json:"columns"` // key is the column name
+}
+
+type StreamEventColumn struct {
+	DataType string `json:"dataType"`
+	Before   string `json:"before"`
+	After    string `json:"after"`
 }
 ```

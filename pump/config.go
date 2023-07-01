@@ -5,16 +5,23 @@ import (
 )
 
 type Pipeline struct {
-	Schema  string
-	Table   string
-	Type    string
-	Stream  string
-	Enabled bool
+	Schema    string
+	Table     string
+	Type      string
+	Stream    string
+	Enabled   bool
+	Structure string
 }
 
 type GlobalFilter struct {
 	Include string
 	Exclude string
+}
+
+type EventMapping struct {
+	From string
+	To   string
+	Type string
 }
 
 type EventPumpConfig struct {

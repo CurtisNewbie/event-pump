@@ -48,6 +48,6 @@ filter:
 # pipeline:
 #   - schema: '.*'
 #     table: '.*'
-#     type: '(INS|UPD)'
+#     type: '(INS|UPD|DEL)'
 #     stream: 'data-change.echo'
 #     enabled: true
