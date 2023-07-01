@@ -51,3 +51,10 @@ filter:
 #     type: '(INS|UPD|DEL)'
 #     stream: 'data-change.echo'
 #     enabled: true
+
+# pipeline:
+#   - schema: 'fileserver'
+#     table: 'file_info'
+#     type: '^(INS)$'
+#     stream: 'vfm.file.saved'
+#     enabled: true

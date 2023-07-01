@@ -151,7 +151,7 @@ func FetchTableInfo(c common.ExecContext, schema string, table string) (TableInf
 	var columns []ColumnInfo
 	e := conn.
 		Table("information_schema.columns").
-		Select("column_name, ordinal_position, data_type").
+		Select("column_name COLUMN_NAME, ordinal_position ORDINAL_POSITION, data_type DATA_TYPE").
 		Where("table_schema = ? AND table_name = ?", schema, table).
 		Order("ordinal_position asc").
 		Scan(&columns).Error

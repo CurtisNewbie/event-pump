@@ -77,6 +77,8 @@ func PreServerBootstrap(c common.ExecContext) error {
 				return err
 			}
 
+			c.Log.Debugf("DCE: %s", dce)
+
 			// dispatch event, one change event may be manified to multple events
 			// e.g., an update to multiple rows
 			for _, evt := range events {
