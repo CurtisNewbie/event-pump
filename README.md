@@ -38,8 +38,8 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 
 ```yaml
 filter:
-  include: '^(mytable|another_table)$'
-  exclude: '^(system_table)$'
+  include: '^(my_db|another_db)$'
+  exclude: '^(system_db)$'
 
 pipeline:
   - schema: '.*'
