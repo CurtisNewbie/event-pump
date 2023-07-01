@@ -81,7 +81,7 @@ type Record struct {
 }
 
 type DataChangeEvent struct {
-	Timestamp uint32         `json:"timestamp"`
+	Timestamp uint32         `json:"timestamp"` // epoch time second
 	Schema    string         `json:"schema"`
 	Table     string         `json:"table"`
 	Type      string         `json:"type"` // INS-INSERT, UPD-UPDATE, DEL-DELETE
@@ -101,7 +101,7 @@ The raw event can be unmarshalled (from json) using following structs. Each even
 
 ```go
 type StreamEvent struct {
-	Timestamp uint32                       `json:"timestamp"`
+	Timestamp uint32                       `json:"timestamp"` // epoch time second
 	Schema    string                       `json:"schema"`
 	Table     string                       `json:"table"`
 	Type      string                       `json:"type"`    // INS-INSERT, UPD-UPDATE, DEL-DELETE
@@ -112,5 +112,28 @@ type StreamEventColumn struct {
 	DataType string `json:"dataType"`
 	Before   string `json:"before"`
 	After    string `json:"after"`
+}
+```
+
+E.g.,
+
+```json
+{
+    "timestamp": 1688199982,
+    "schema": "my_db",
+    "table": "my_table",
+    "type": "INS",
+    "columns": {
+        "id": {
+            "dataType": "int",
+            "before": "1",
+            "after": "1"
+        },
+        "name": {
+            "dataType": "varchar",
+            "before": "banana",
+            "after": "apple"
+        }
+    }
 }
 ```
