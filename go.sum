@@ -70,8 +70,8 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/curtisnewbie/gocommon v0.0.0-20230701124313-b7e9747adac8 h1:abfuLeag4dTP87g0rL3pzux1JMVCPA5d7Zq3yYvaYA0=
-github.com/curtisnewbie/gocommon v0.0.0-20230701124313-b7e9747adac8/go.mod h1:SQuNI+OQRLOnzUo6yDnIpLDMATmTiX+vNuvEkE40zH0=
+github.com/curtisnewbie/gocommon v0.0.0-20230702125717-45a3e078764b h1:5ARUa2hTPB/8LxD/XTYZON5khNXY5EcSUSzthUC2IxQ=
+github.com/curtisnewbie/gocommon v0.0.0-20230702125717-45a3e078764b/go.mod h1:SQuNI+OQRLOnzUo6yDnIpLDMATmTiX+vNuvEkE40zH0=
 github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548/go.mod h1:e6NPNENfs9mPDVNRekM7lKScauxd5kXTr1Mfyig6TDM=
 github.com/cznic/sortutil v0.0.0-20181122101858-f5f958428db8/go.mod h1:q2w6Bg5jeox1B+QkJ6Wp/+Vn0G/bo3f1uY7Fn3vivIQ=
 github.com/cznic/strutil v0.0.0-20171016134553-529a34b1c186/go.mod h1:AHHPPPXTw0h6pVabbcbyGRK1DckRn7r/STdZEeIDzZc=

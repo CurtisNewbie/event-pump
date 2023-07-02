@@ -82,7 +82,7 @@ func PreServerBootstrap(c common.ExecContext) error {
 			// dispatch event, one change event may be manified to multple events
 			// e.g., an update to multiple rows
 			for _, evt := range events {
-				if err := bus.SendToEventBus(evt, pipeline.Stream); err != nil {
+				if err := bus.SendToEventBus(c, evt, pipeline.Stream); err != nil {
 					return err
 				}
 			}
