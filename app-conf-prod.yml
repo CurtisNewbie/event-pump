@@ -48,7 +48,7 @@ sync:
   port: 3306
 
 filter:
-  include: ''
+  include: 'fileserver'
   exclude: ''
 
 pipeline:
@@ -57,3 +57,11 @@ pipeline:
     type: '^(INS)$'
     stream: 'vfm.file.saved'
     enabled: true
+  - schema: 'fileserver'
+    table: 'file_info'
+    type: '^(UPD)$'
+    stream: 'vfm.file.thumbnail.changed'
+    enabled: true
+    condition:
+      column-changed:
+        - "thumbnail"

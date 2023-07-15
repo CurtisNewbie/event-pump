@@ -44,10 +44,12 @@ func PreServerBootstrap(c common.ExecContext) error {
 		if pipeline.Type != "" {
 			typePattern = regexp.MustCompile(pipeline.Type)
 		}
+
+		// filter rules for complex configuration, e.g., only the events that include changes to certain columns
 		filters := NewFilters(pipeline)
 
-		// mapper for converting the event
-		mapper := NewMapper(pipeline.Type)
+		// mapper for converting the structure of the event
+		mapper := NewMapper()
 
 		// Declare Stream
 		bus.DeclareEventBus(pipeline.Stream)

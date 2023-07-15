@@ -2,11 +2,6 @@ package pump
 
 import "fmt"
 
-const (
-	STRUCT_RAW    = "raw"
-	STRUCT_STREAM = "stream"
-)
-
 type StreamEvent struct {
 	Timestamp uint32                       `json:"timestamp"` // epoc time second
 	Schema    string                       `json:"schema"`
@@ -61,20 +56,6 @@ func (m streamEventMapper) MapEvent(dce DataChangeEvent) ([]any, error) {
 	return mapped, nil
 }
 
-type rawEventMapper struct {
-}
-
-func (m rawEventMapper) MapEvent(dce DataChangeEvent) ([]any, error) {
-	return []any{dce}, nil
-}
-
-func NewMapper(structure string) Mapper {
-	switch structure {
-	case STRUCT_RAW:
-		return rawEventMapper{}
-	case STRUCT_STREAM:
-		return streamEventMapper{}
-	default:
-		return streamEventMapper{}
-	}
+func NewMapper() Mapper {
+	return streamEventMapper{}
 }

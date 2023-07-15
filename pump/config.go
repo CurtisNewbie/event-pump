@@ -14,7 +14,6 @@ type Pipeline struct {
 	Type      string
 	Stream    string
 	Enabled   bool
-	Structure string
 	Condition Condition `mapstructure:"condition"`
 }
 
