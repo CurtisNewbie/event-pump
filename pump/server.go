@@ -91,8 +91,8 @@ func PreServerBootstrap(c common.ExecContext) error {
 			}
 			return nil
 		})
-		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v', type pattern: '%v', event-bus: %s",
-			pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream)
+		c.Log.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
+			pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
 	}
 
 	return nil

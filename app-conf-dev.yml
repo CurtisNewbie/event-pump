@@ -51,11 +51,21 @@ pipeline:
     type: '^(INS)$'
     stream: 'vfm.file.saved'
     enabled: true
+
   - schema: 'fileserver'
     table: 'file_info'
     type: '^(UPD)$'
-    stream: 'vfm.file.thumbnail.changed'
+    stream: 'vfm.file.thumbnail.updated'
     enabled: true
     condition:
       column-changed:
         - "thumbnail"
+
+  - schema: 'fileserver'
+    table: 'file_info'
+    type: '^(UPD)$'
+    stream: 'vfm.file.name.updated'
+    enabled: true
+    condition:
+      column-changed:
+        - "name"
