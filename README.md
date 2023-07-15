@@ -16,22 +16,24 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 
 For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommon).
 
-| Property             | Description                                                                                                                                         | Default Value |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| sync.server-id       | server-id used to mimic a replication server                                                                                                        | 100           |
-| sync.user            | username of the master MySQL instance                                                                                                               | root          |
-| sync.password        | password of the master MySQL instance                                                                                                               |               |
-| sync.host            | host of the master MySQL instance                                                                                                                   | 127.0.0.1     |
-| sync.port            | port of the master MySQL instance                                                                                                                   | 3306          |
-| filter.include       | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                          |               |
-| filter.exclude       | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter    |               |
-| []pipeline           | list of pipeline config                                                                                                                             |               |
-| []pipeline.schema    | regexp for matching schema name                                                                                                                     |               |
-| []pipeline.table     | regexp for matching table name                                                                                                                      |               |
-| []pipeline.type      | regexp for matching event type (optional)                                                                                                           |               |
-| []pipeline.stream    | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `"event.bus." + ${pipeline.stream}` using routing key `'#'`) |               |
-| []pipeline.enabled   | whether it's enabled                                                                                                                                |               |
-| []pipeline.structure | structure of the event in json                                                                                                                      | stream        |
+| Property           | Description                                                                                                                                         | Default Value |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| sync.server-id     | server-id used to mimic a replication server                                                                                                        | 100           |
+| sync.user          | username of the master MySQL instance                                                                                                               | root          |
+| sync.password      | password of the master MySQL instance                                                                                                               |               |
+| sync.host          | host of the master MySQL instance                                                                                                                   | 127.0.0.1     |
+| sync.port          | port of the master MySQL instance                                                                                                                   | 3306          |
+| filter.include     | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                          |               |
+| filter.exclude     | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter    |               |
+| []pipeline         | list of pipeline config                                                                                                                             |               |
+| []pipeline.schema  | regexp for matching schema name                                                                                                                     |               |
+| []pipeline.table   | regexp for matching table name                                                                                                                      |               |
+| []pipeline.type    | regexp for matching event type (optional)                                                                                                           |               |
+| []pipeline.stream  | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `"event.bus." + ${pipeline.stream}` using routing key `'#'`) |               |
+| []pipeline.enabled | whether it's enabled                                                                                                                                |               |
+| []pipeline.structure | structure of the event in json (`stream`, `raw`)                                                                                                                     | stream        |
+| []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns, only supports `structure: stream`                                                                                                                      | |
+
 
 
 ## Configuration Example

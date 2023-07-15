@@ -4,6 +4,10 @@ import (
 	"github.com/curtisnewbie/gocommon/common"
 )
 
+type Condition struct {
+	ColumnChanged []string `mapstructure:"column-changed"`
+}
+
 type Pipeline struct {
 	Schema    string
 	Table     string
@@ -11,6 +15,7 @@ type Pipeline struct {
 	Stream    string
 	Enabled   bool
 	Structure string
+	Condition Condition `mapstructure:"condition"`
 }
 
 type GlobalFilter struct {

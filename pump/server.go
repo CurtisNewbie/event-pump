@@ -18,12 +18,6 @@ var (
 
 func PreServerBootstrap(c common.ExecContext) error {
 
-	// For testing
-	// bus.SubscribeEventBus("data-change.echo", 1, func(dce StreamEvent) error {
-	// 	c.Log.Infof("Receieved: %+v", dce)
-	// 	return nil
-	// })
-
 	config := LoadConfig()
 	c.Log.Debugf("Config: %+v", config)
 
@@ -50,6 +44,7 @@ func PreServerBootstrap(c common.ExecContext) error {
 		if pipeline.Type != "" {
 			typePattern = regexp.MustCompile(pipeline.Type)
 		}
+		filters := NewFilters(pipeline)
 
 		// mapper for converting the event
 		mapper := NewMapper(pipeline.Type)
@@ -72,6 +67,7 @@ func PreServerBootstrap(c common.ExecContext) error {
 			}
 
 			// based on configuration, we may convert the dce to some sort of structure meaningful to the receiver
+			// one change event may be manified to multple events, e.g., an update to multiple rows
 			events, err := mapper.MapEvent(dce)
 			if err != nil {
 				return err
@@ -79,17 +75,22 @@ func PreServerBootstrap(c common.ExecContext) error {
 
 			c.Log.Debugf("DCE: %s", dce)
 
-			// dispatch event, one change event may be manified to multple events
-			// e.g., an update to multiple rows
 			for _, evt := range events {
+				for _, filter := range filters {
+					if !filter.Include(c, evt) {
+						continue
+					}
+				}
+
 				if err := bus.SendToEventBus(c, evt, pipeline.Stream); err != nil {
 					return err
 				}
+
 			}
 			return nil
 		})
-		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v', type pattern: '%v'",
-			pipeline.Schema, pipeline.Table, pipeline.Type)
+		c.Log.Infof("Subscribed DataChangeEvent with schema pattern: '%v', table pattern: '%v', type pattern: '%v', event-bus: %s",
+			pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream)
 	}
 
 	return nil
@@ -117,4 +118,51 @@ func PostServerBootstrap(c common.ExecContext) error {
 		}
 	}(c.NextSpan(), streamer)
 	return nil
+}
+
+type Filter interface {
+	Include(c common.ExecContext, evt any) bool
+}
+
+type noOpFilter struct {
+}
+
+func (f noOpFilter) Include(c common.ExecContext, evt any) bool {
+	return true
+}
+
+type columnFilter struct {
+	ColumnsChanged []string
+}
+
+func (f columnFilter) Include(c common.ExecContext, evt any) bool {
+	switch ev := evt.(type) {
+	case StreamEvent:
+		if ev.Type != TYPE_UPDATE {
+			return true
+		}
+
+		for _, cc := range f.ColumnsChanged {
+			sec, ok := ev.Columns[cc]
+			if ok && sec.Before != sec.After {
+				return true
+			}
+		}
+
+		c.Log.Debugf("Event filtered out, doesn't contain change to any of the specified columns: %v", f.ColumnsChanged)
+		return false // the event doesn't include any change to these specified columns
+
+	case DataChangeEvent:
+		return true // doesn't support at all
+	}
+
+	return true
+}
+
+func NewFilters(p Pipeline) []Filter {
+	if len(p.Condition.ColumnChanged) < 1 {
+		return []Filter{noOpFilter{}}
+	}
+
+	return []Filter{columnFilter{common.Distinct(p.Condition.ColumnChanged)}}
 }
