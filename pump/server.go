@@ -29,7 +29,8 @@ func PreServerBootstrap(c common.ExecContext) error {
 		SetGlobalExclude(regexp.MustCompile(config.Filter.Exclude))
 	}
 
-	for _, pipeline := range config.Pipelines {
+	for _, p := range config.Pipelines {
+		pipeline := p
 		if !pipeline.Enabled {
 			continue
 		}
