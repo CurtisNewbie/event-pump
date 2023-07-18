@@ -66,3 +66,12 @@ pipeline:
     condition:
       column-changed:
         - "thumbnail"
+
+  - schema: 'fileserver'
+    table: 'file_info'
+    type: '^(UPD)$'
+    stream: 'vfm.file.logic.deleted'
+    enabled: true
+    condition:
+      column-changed:
+        - "is_logic_deleted"
