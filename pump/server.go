@@ -6,20 +6,21 @@ import (
 
 	"github.com/curtisnewbie/gocommon/bus"
 	"github.com/curtisnewbie/gocommon/common"
+	"github.com/curtisnewbie/gocommon/server"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
 var (
-	defaultLogHandler = func(c common.ExecContext, dce DataChangeEvent) error {
-		c.Log.Infof("Received event: '%v'", dce)
+	defaultLogHandler = func(rail common.Rail, dce DataChangeEvent) error {
+		rail.Infof("Received event: '%v'", dce)
 		return nil
 	}
 )
 
-func PreServerBootstrap(c common.ExecContext) error {
+func PreServerBootstrap(rail common.Rail) error {
 
 	config := LoadConfig()
-	c.Log.Debugf("Config: %+v", config)
+	rail.Debugf("Config: %+v", config)
 
 	if config.Filter.Include != "" {
 		SetGlobalInclude(regexp.MustCompile(config.Filter.Include))
@@ -55,17 +56,17 @@ func PreServerBootstrap(c common.ExecContext) error {
 		// Declare Stream
 		bus.DeclareEventBus(pipeline.Stream)
 
-		OnEventReceived(func(c common.ExecContext, dce DataChangeEvent) error {
+		OnEventReceived(func(c common.Rail, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
-				c.Log.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
+				c.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
 				return nil
 			}
 			if !tablePattern.MatchString(dce.Table) {
-				c.Log.Debugf("table pattern not matched, event ignored, %v", dce.Table)
+				c.Debugf("table pattern not matched, event ignored, %v", dce.Table)
 				return nil
 			}
 			if typePattern != nil && !typePattern.MatchString(dce.Type) {
-				c.Log.Debugf("type pattern not matched, event ignored, %v", dce.Type)
+				c.Debugf("type pattern not matched, event ignored, %v", dce.Type)
 				return nil
 			}
 
@@ -76,7 +77,7 @@ func PreServerBootstrap(c common.ExecContext) error {
 				return err
 			}
 
-			c.Log.Debugf("DCE: %s", dce)
+			c.Debugf("DCE: %s", dce)
 
 			for _, evt := range events {
 				for _, filter := range filters {
@@ -92,20 +93,20 @@ func PreServerBootstrap(c common.ExecContext) error {
 			}
 			return nil
 		})
-		c.Log.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
+		rail.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
 			pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
 	}
 
 	return nil
 }
 
-func PostServerBootstrap(c common.ExecContext) error {
-	syncer, err := PrepareSync(c)
+func PostServerBootstrap(rail common.Rail) error {
+	syncer, err := PrepareSync(rail)
 	if err != nil {
 		return err
 	}
 
-	streamer, err := NewStreamer(c, syncer)
+	streamer, err := NewStreamer(rail, syncer)
 	if err != nil {
 		return err
 	}
@@ -114,11 +115,12 @@ func PostServerBootstrap(c common.ExecContext) error {
 		OnEventReceived(defaultLogHandler)
 	}
 
-	go func(ec common.ExecContext, streamer *replication.BinlogStreamer) {
+	go func(rail common.Rail, streamer *replication.BinlogStreamer) {
 		defer syncer.Close()
-		if e := PumpEvents(ec, syncer, streamer); e != nil {
-			ec.Log.Fatal(e)
+		if e := PumpEvents(rail, syncer, streamer); e != nil {
+			rail.Errorf("PumpEvents encountered error: %v, exiting", e)
+			server.Shutdown()
 		}
-	}(c.NextSpan(), streamer)
+	}(rail.NextSpan(), streamer)
 	return nil
 }

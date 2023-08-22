@@ -102,7 +102,7 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 	return "{ " + strings.Join(sl, ", ") + " }"
 }
 
-type EventHandler func(c common.ExecContext, dce DataChangeEvent) error
+type EventHandler func(c common.Rail, dce DataChangeEvent) error
 
 func HasAnyEventHandler() bool {
 	return len(handlers) > 0
@@ -112,7 +112,7 @@ func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
 }
 
-func callEventHandlers(c common.ExecContext, dce DataChangeEvent) error {
+func callEventHandlers(c common.Rail, dce DataChangeEvent) error {
 	for _, handle := range handlers {
 		if e := handle(c, dce); e != nil {
 			return e
@@ -147,7 +147,7 @@ type ColumnInfo struct {
 	OrdinalPosition int    `gorm:"column:ORDINAL_POSITION"`
 }
 
-func FetchTableInfo(c common.ExecContext, schema string, table string) (TableInfo, error) {
+func FetchTableInfo(c common.Rail, schema string, table string) (TableInfo, error) {
 	var columns []ColumnInfo
 	e := conn.
 		Table("information_schema.columns").
@@ -158,13 +158,13 @@ func FetchTableInfo(c common.ExecContext, schema string, table string) (TableInf
 	return TableInfo{Table: table, Schema: schema, Columns: columns}, e
 }
 
-func ResetTableInfoCache(c common.ExecContext, schema string, table string) {
+func ResetTableInfoCache(c common.Rail, schema string, table string) {
 	k := schema + "." + table
 	delete(tableInfoMap, k)
-	c.Log.Infof("Reset TableInfo cache, %v.%v", schema, table)
+	c.Infof("Reset TableInfo cache, %v.%v", schema, table)
 }
 
-func CachedTableInfo(c common.ExecContext, schema string, table string) (TableInfo, error) {
+func CachedTableInfo(c common.Rail, schema string, table string) (TableInfo, error) {
 	k := schema + "." + table
 	ti, ok := tableInfoMap[k]
 	if ok {
@@ -180,13 +180,13 @@ func CachedTableInfo(c common.ExecContext, schema string, table string) (TableIn
 	return fti, nil
 }
 
-func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
+func PumpEvents(c common.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
 	isProd := common.IsProdMode()
 
 	for {
 		ev, err := streamer.GetEvent(c.Ctx)
 		if err != nil {
-			c.Log.Errorf("GetEvent returned error, %v", err)
+			c.Errorf("GetEvent returned error, %v", err)
 			continue // retry GetEvent
 		}
 		if !isProd {
@@ -341,14 +341,14 @@ func PumpEvents(c common.ExecContext, syncer *replication.BinlogSyncer, streamer
 		}
 
 		if server.IsShuttingDown() {
-			c.Log.Info("Server shutting down")
+			c.Info("Server shutting down")
 			return nil
 		}
 	}
 }
 
-func updatePos(c common.ExecContext, pos mysql.Position) error {
-	c.Log.Infof("Curr Pos: %+v", pos)
+func updatePos(c common.Rail, pos mysql.Position) error {
+	c.Infof("Curr Pos: %+v", pos)
 	s, e := json.Marshal(&pos)
 	if e != nil {
 		return e
@@ -358,7 +358,7 @@ func updatePos(c common.ExecContext, pos mysql.Position) error {
 	return sc.Err()
 }
 
-func lastPos(c common.ExecContext) (mysql.Position, error) {
+func lastPos(c common.Rail) (mysql.Position, error) {
 
 	sc := red.GetRedis().Get(lastPosKey)
 	if sc.Err() != nil {
@@ -379,11 +379,11 @@ func lastPos(c common.ExecContext) (mysql.Position, error) {
 		return mysql.Position{}, e
 	}
 
-	c.Log.Infof("Last position: %v - %v", pos.Name, pos.Pos)
+	c.Infof("Last position: %v - %v", pos.Name, pos.Pos)
 	return pos, nil
 }
 
-func NewStreamer(c common.ExecContext, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
+func NewStreamer(c common.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
 	pos, err := lastPos(c)
 	if err != nil {
 		return nil, err
@@ -391,7 +391,7 @@ func NewStreamer(c common.ExecContext, syncer *replication.BinlogSyncer) (*repli
 	return syncer.StartSync(pos)
 }
 
-func PrepareSync(c common.ExecContext) (*replication.BinlogSyncer, error) {
+func PrepareSync(rail common.Rail) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
 		ServerID: uint32(common.GetPropInt(PROP_SYNC_SERVER_ID)),
 		Flavor:   flavorMysql,
@@ -399,7 +399,7 @@ func PrepareSync(c common.ExecContext) (*replication.BinlogSyncer, error) {
 		Port:     uint16(common.GetPropInt(PROP_SYNC_PORT)),
 		User:     common.GetPropStr(PROP_SYNC_USER),
 		Password: common.GetPropStr(PROP_SYNC_PASSWORD),
-		Logger:   c.Log,
+		Logger:   rail.Logger(),
 	}
 
 	client, err := mys.NewConn(
