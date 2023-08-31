@@ -14,7 +14,7 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 
 ## Configuration
 
-For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommon).
+For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 
 | Property                              | Description                                                                                                                                         | Default Value |
 |---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|

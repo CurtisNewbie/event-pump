@@ -1,15 +1,15 @@
 package pump
 
-import "github.com/curtisnewbie/gocommon/common"
+import "github.com/curtisnewbie/miso/core"
 
 type Filter interface {
-	Include(rail common.Rail, evt any) bool
+	Include(rail core.Rail, evt any) bool
 }
 
 type noOpFilter struct {
 }
 
-func (f noOpFilter) Include(rail common.Rail, evt any) bool {
+func (f noOpFilter) Include(rail core.Rail, evt any) bool {
 	return true
 }
 
@@ -17,7 +17,7 @@ type columnFilter struct {
 	ColumnsChanged []string
 }
 
-func (f columnFilter) Include(rail common.Rail, evt any) bool {
+func (f columnFilter) Include(rail core.Rail, evt any) bool {
 	switch ev := evt.(type) {
 	case StreamEvent:
 		if ev.Type != TYPE_UPDATE {
@@ -46,5 +46,5 @@ func NewFilters(p Pipeline) []Filter {
 		return []Filter{noOpFilter{}}
 	}
 
-	return []Filter{columnFilter{common.Distinct(p.Condition.ColumnChanged)}}
+	return []Filter{columnFilter{core.Distinct(p.Condition.ColumnChanged)}}
 }

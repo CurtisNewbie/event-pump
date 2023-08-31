@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/curtisnewbie/event-pump/pump"
-	"github.com/curtisnewbie/gocommon/server"
+	"github.com/curtisnewbie/miso/server"
 )
 
 func main() {

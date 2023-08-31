@@ -4,20 +4,20 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/curtisnewbie/gocommon/bus"
-	"github.com/curtisnewbie/gocommon/common"
-	"github.com/curtisnewbie/gocommon/server"
+	"github.com/curtisnewbie/miso/bus"
+	"github.com/curtisnewbie/miso/core"
+	"github.com/curtisnewbie/miso/server"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
 var (
-	defaultLogHandler = func(rail common.Rail, dce DataChangeEvent) error {
+	defaultLogHandler = func(rail core.Rail, dce DataChangeEvent) error {
 		rail.Infof("Received event: '%v'", dce)
 		return nil
 	}
 )
 
-func PreServerBootstrap(rail common.Rail) error {
+func PreServerBootstrap(rail core.Rail) error {
 
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
@@ -56,7 +56,7 @@ func PreServerBootstrap(rail common.Rail) error {
 		// Declare Stream
 		bus.DeclareEventBus(pipeline.Stream)
 
-		OnEventReceived(func(c common.Rail, dce DataChangeEvent) error {
+		OnEventReceived(func(c core.Rail, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
 				c.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
 				return nil
@@ -100,7 +100,7 @@ func PreServerBootstrap(rail common.Rail) error {
 	return nil
 }
 
-func PostServerBootstrap(rail common.Rail) error {
+func PostServerBootstrap(rail core.Rail) error {
 	syncer, err := PrepareSync(rail)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func PostServerBootstrap(rail common.Rail) error {
 		OnEventReceived(defaultLogHandler)
 	}
 
-	go func(rail common.Rail, streamer *replication.BinlogStreamer) {
+	go func(rail core.Rail, streamer *replication.BinlogStreamer) {
 		defer syncer.Close()
 		if e := PumpEvents(rail, syncer, streamer); e != nil {
 			rail.Errorf("PumpEvents encountered error: %v, exiting", e)

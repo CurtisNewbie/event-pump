@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/curtisnewbie/gocommon/common"
-	mys "github.com/curtisnewbie/gocommon/mysql"
-	red "github.com/curtisnewbie/gocommon/redis"
-	"github.com/curtisnewbie/gocommon/server"
+	"github.com/curtisnewbie/miso/core"
+	mys "github.com/curtisnewbie/miso/mysql"
+	red "github.com/curtisnewbie/miso/redis"
+	"github.com/curtisnewbie/miso/server"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-redis/redis"
@@ -45,11 +45,11 @@ var (
 )
 
 func init() {
-	common.SetDefProp(PROP_SYNC_SERVER_ID, 100)
-	common.SetDefProp(PROP_SYNC_HOST, "127.0.0.1")
-	common.SetDefProp(PROP_SYNC_PORT, 3306)
-	common.SetDefProp(PROP_SYNC_USER, "root")
-	common.SetDefProp(PROP_SYNC_PASSWORD, "")
+	core.SetDefProp(PROP_SYNC_SERVER_ID, 100)
+	core.SetDefProp(PROP_SYNC_HOST, "127.0.0.1")
+	core.SetDefProp(PROP_SYNC_PORT, 3306)
+	core.SetDefProp(PROP_SYNC_USER, "root")
+	core.SetDefProp(PROP_SYNC_PASSWORD, "")
 }
 
 type Record struct {
@@ -102,7 +102,7 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 	return "{ " + strings.Join(sl, ", ") + " }"
 }
 
-type EventHandler func(c common.Rail, dce DataChangeEvent) error
+type EventHandler func(c core.Rail, dce DataChangeEvent) error
 
 func HasAnyEventHandler() bool {
 	return len(handlers) > 0
@@ -112,7 +112,7 @@ func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
 }
 
-func callEventHandlers(c common.Rail, dce DataChangeEvent) error {
+func callEventHandlers(c core.Rail, dce DataChangeEvent) error {
 	for _, handle := range handlers {
 		if e := handle(c, dce); e != nil {
 			return e
@@ -147,7 +147,7 @@ type ColumnInfo struct {
 	OrdinalPosition int    `gorm:"column:ORDINAL_POSITION"`
 }
 
-func FetchTableInfo(c common.Rail, schema string, table string) (TableInfo, error) {
+func FetchTableInfo(c core.Rail, schema string, table string) (TableInfo, error) {
 	var columns []ColumnInfo
 	e := conn.
 		Table("information_schema.columns").
@@ -158,13 +158,13 @@ func FetchTableInfo(c common.Rail, schema string, table string) (TableInfo, erro
 	return TableInfo{Table: table, Schema: schema, Columns: columns}, e
 }
 
-func ResetTableInfoCache(c common.Rail, schema string, table string) {
+func ResetTableInfoCache(c core.Rail, schema string, table string) {
 	k := schema + "." + table
 	delete(tableInfoMap, k)
 	c.Infof("Reset TableInfo cache, %v.%v", schema, table)
 }
 
-func CachedTableInfo(c common.Rail, schema string, table string) (TableInfo, error) {
+func CachedTableInfo(c core.Rail, schema string, table string) (TableInfo, error) {
 	k := schema + "." + table
 	ti, ok := tableInfoMap[k]
 	if ok {
@@ -180,8 +180,8 @@ func CachedTableInfo(c common.Rail, schema string, table string) (TableInfo, err
 	return fti, nil
 }
 
-func PumpEvents(c common.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
-	isProd := common.IsProdMode()
+func PumpEvents(c core.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
+	isProd := core.IsProdMode()
 
 	for {
 		ev, err := streamer.GetEvent(c.Ctx)
@@ -347,7 +347,7 @@ func PumpEvents(c common.Rail, syncer *replication.BinlogSyncer, streamer *repli
 	}
 }
 
-func updatePos(c common.Rail, pos mysql.Position) error {
+func updatePos(c core.Rail, pos mysql.Position) error {
 	c.Infof("Curr Pos: %+v", pos)
 	s, e := json.Marshal(&pos)
 	if e != nil {
@@ -358,7 +358,7 @@ func updatePos(c common.Rail, pos mysql.Position) error {
 	return sc.Err()
 }
 
-func lastPos(c common.Rail) (mysql.Position, error) {
+func lastPos(c core.Rail) (mysql.Position, error) {
 
 	sc := red.GetRedis().Get(lastPosKey)
 	if sc.Err() != nil {
@@ -383,7 +383,7 @@ func lastPos(c common.Rail) (mysql.Position, error) {
 	return pos, nil
 }
 
-func NewStreamer(c common.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
+func NewStreamer(c core.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
 	pos, err := lastPos(c)
 	if err != nil {
 		return nil, err
@@ -391,30 +391,30 @@ func NewStreamer(c common.Rail, syncer *replication.BinlogSyncer) (*replication.
 	return syncer.StartSync(pos)
 }
 
-func PrepareSync(rail common.Rail) (*replication.BinlogSyncer, error) {
+func PrepareSync(rail core.Rail) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
-		ServerID: uint32(common.GetPropInt(PROP_SYNC_SERVER_ID)),
+		ServerID: uint32(core.GetPropInt(PROP_SYNC_SERVER_ID)),
 		Flavor:   flavorMysql,
-		Host:     common.GetPropStr(PROP_SYNC_HOST),
-		Port:     uint16(common.GetPropInt(PROP_SYNC_PORT)),
-		User:     common.GetPropStr(PROP_SYNC_USER),
-		Password: common.GetPropStr(PROP_SYNC_PASSWORD),
+		Host:     core.GetPropStr(PROP_SYNC_HOST),
+		Port:     uint16(core.GetPropInt(PROP_SYNC_PORT)),
+		User:     core.GetPropStr(PROP_SYNC_USER),
+		Password: core.GetPropStr(PROP_SYNC_PASSWORD),
 		Logger:   rail.Logger(),
 	}
 
 	client, err := mys.NewConn(
-		common.GetPropStr(PROP_SYNC_USER),
-		common.GetPropStr(PROP_SYNC_PASSWORD),
+		core.GetPropStr(PROP_SYNC_USER),
+		core.GetPropStr(PROP_SYNC_PASSWORD),
 		"",
-		common.GetPropStr(PROP_SYNC_HOST),
-		common.GetPropStr(PROP_SYNC_PORT),
+		core.GetPropStr(PROP_SYNC_HOST),
+		core.GetPropStr(PROP_SYNC_PORT),
 		"",
 	)
 	if err != nil {
 		return nil, err
 	}
 	conn = client
-	if !common.IsProdMode() {
+	if !core.IsProdMode() {
 		conn = conn.Debug()
 	}
 

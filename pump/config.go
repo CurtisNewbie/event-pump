@@ -1,7 +1,7 @@
 package pump
 
 import (
-	"github.com/curtisnewbie/gocommon/common"
+	"github.com/curtisnewbie/miso/core"
 )
 
 type Condition struct {
@@ -35,6 +35,6 @@ type EventPumpConfig struct {
 
 func LoadConfig() EventPumpConfig {
 	var conf EventPumpConfig
-	common.UnmarshalFromProp(&conf)
+	core.UnmarshalFromProp(&conf)
 	return conf
 }
