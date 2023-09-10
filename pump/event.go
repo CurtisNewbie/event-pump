@@ -8,10 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/curtisnewbie/miso/core"
-	mys "github.com/curtisnewbie/miso/mysql"
-	red "github.com/curtisnewbie/miso/redis"
-	"github.com/curtisnewbie/miso/server"
+	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-redis/redis"
@@ -45,11 +42,11 @@ var (
 )
 
 func init() {
-	core.SetDefProp(PROP_SYNC_SERVER_ID, 100)
-	core.SetDefProp(PROP_SYNC_HOST, "127.0.0.1")
-	core.SetDefProp(PROP_SYNC_PORT, 3306)
-	core.SetDefProp(PROP_SYNC_USER, "root")
-	core.SetDefProp(PROP_SYNC_PASSWORD, "")
+	miso.SetDefProp(PROP_SYNC_SERVER_ID, 100)
+	miso.SetDefProp(PROP_SYNC_HOST, "127.0.0.1")
+	miso.SetDefProp(PROP_SYNC_PORT, 3306)
+	miso.SetDefProp(PROP_SYNC_USER, "root")
+	miso.SetDefProp(PROP_SYNC_PASSWORD, "")
 }
 
 type Record struct {
@@ -102,7 +99,7 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 	return "{ " + strings.Join(sl, ", ") + " }"
 }
 
-type EventHandler func(c core.Rail, dce DataChangeEvent) error
+type EventHandler func(c miso.Rail, dce DataChangeEvent) error
 
 func HasAnyEventHandler() bool {
 	return len(handlers) > 0
@@ -112,7 +109,7 @@ func OnEventReceived(handler EventHandler) {
 	handlers = append(handlers, handler)
 }
 
-func callEventHandlers(c core.Rail, dce DataChangeEvent) error {
+func callEventHandlers(c miso.Rail, dce DataChangeEvent) error {
 	for _, handle := range handlers {
 		if e := handle(c, dce); e != nil {
 			return e
@@ -147,7 +144,7 @@ type ColumnInfo struct {
 	OrdinalPosition int    `gorm:"column:ORDINAL_POSITION"`
 }
 
-func FetchTableInfo(c core.Rail, schema string, table string) (TableInfo, error) {
+func FetchTableInfo(c miso.Rail, schema string, table string) (TableInfo, error) {
 	var columns []ColumnInfo
 	e := conn.
 		Table("information_schema.columns").
@@ -158,13 +155,13 @@ func FetchTableInfo(c core.Rail, schema string, table string) (TableInfo, error)
 	return TableInfo{Table: table, Schema: schema, Columns: columns}, e
 }
 
-func ResetTableInfoCache(c core.Rail, schema string, table string) {
+func ResetTableInfoCache(c miso.Rail, schema string, table string) {
 	k := schema + "." + table
 	delete(tableInfoMap, k)
 	c.Infof("Reset TableInfo cache, %v.%v", schema, table)
 }
 
-func CachedTableInfo(c core.Rail, schema string, table string) (TableInfo, error) {
+func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error) {
 	k := schema + "." + table
 	ti, ok := tableInfoMap[k]
 	if ok {
@@ -180,8 +177,8 @@ func CachedTableInfo(c core.Rail, schema string, table string) (TableInfo, error
 	return fti, nil
 }
 
-func PumpEvents(c core.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
-	isProd := core.IsProdMode()
+func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
+	isProd := miso.IsProdMode()
 
 	for {
 		ev, err := streamer.GetEvent(c.Ctx)
@@ -340,27 +337,27 @@ func PumpEvents(c core.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			return e
 		}
 
-		if server.IsShuttingDown() {
+		if miso.IsShuttingDown() {
 			c.Info("Server shutting down")
 			return nil
 		}
 	}
 }
 
-func updatePos(c core.Rail, pos mysql.Position) error {
+func updatePos(c miso.Rail, pos mysql.Position) error {
 	c.Infof("Curr Pos: %+v", pos)
 	s, e := json.Marshal(&pos)
 	if e != nil {
 		return e
 	}
 
-	sc := red.GetRedis().Set(lastPosKey, []byte(s), 0)
+	sc := miso.GetRedis().Set(lastPosKey, []byte(s), 0)
 	return sc.Err()
 }
 
-func lastPos(c core.Rail) (mysql.Position, error) {
+func lastPos(c miso.Rail) (mysql.Position, error) {
 
-	sc := red.GetRedis().Get(lastPosKey)
+	sc := miso.GetRedis().Get(lastPosKey)
 	if sc.Err() != nil {
 		if errors.Is(sc.Err(), redis.Nil) {
 			return mysql.Position{}, nil
@@ -383,7 +380,7 @@ func lastPos(c core.Rail) (mysql.Position, error) {
 	return pos, nil
 }
 
-func NewStreamer(c core.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
+func NewStreamer(c miso.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
 	pos, err := lastPos(c)
 	if err != nil {
 		return nil, err
@@ -391,30 +388,30 @@ func NewStreamer(c core.Rail, syncer *replication.BinlogSyncer) (*replication.Bi
 	return syncer.StartSync(pos)
 }
 
-func PrepareSync(rail core.Rail) (*replication.BinlogSyncer, error) {
+func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
-		ServerID: uint32(core.GetPropInt(PROP_SYNC_SERVER_ID)),
+		ServerID: uint32(miso.GetPropInt(PROP_SYNC_SERVER_ID)),
 		Flavor:   flavorMysql,
-		Host:     core.GetPropStr(PROP_SYNC_HOST),
-		Port:     uint16(core.GetPropInt(PROP_SYNC_PORT)),
-		User:     core.GetPropStr(PROP_SYNC_USER),
-		Password: core.GetPropStr(PROP_SYNC_PASSWORD),
+		Host:     miso.GetPropStr(PROP_SYNC_HOST),
+		Port:     uint16(miso.GetPropInt(PROP_SYNC_PORT)),
+		User:     miso.GetPropStr(PROP_SYNC_USER),
+		Password: miso.GetPropStr(PROP_SYNC_PASSWORD),
 		Logger:   rail.Logger(),
 	}
 
-	client, err := mys.NewConn(
-		core.GetPropStr(PROP_SYNC_USER),
-		core.GetPropStr(PROP_SYNC_PASSWORD),
+	client, err := miso.NewMySQLConn(
+		miso.GetPropStr(PROP_SYNC_USER),
+		miso.GetPropStr(PROP_SYNC_PASSWORD),
 		"",
-		core.GetPropStr(PROP_SYNC_HOST),
-		core.GetPropStr(PROP_SYNC_PORT),
+		miso.GetPropStr(PROP_SYNC_HOST),
+		miso.GetPropStr(PROP_SYNC_PORT),
 		"",
 	)
 	if err != nil {
 		return nil, err
 	}
 	conn = client
-	if !core.IsProdMode() {
+	if !miso.IsProdMode() {
 		conn = conn.Debug()
 	}
 

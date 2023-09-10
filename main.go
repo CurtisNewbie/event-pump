@@ -4,11 +4,11 @@ import (
 	"os"
 
 	"github.com/curtisnewbie/event-pump/pump"
-	"github.com/curtisnewbie/miso/server"
+	"github.com/curtisnewbie/miso/miso"
 )
 
 func main() {
-	server.PreServerBootstrap(pump.PreServerBootstrap)
-	server.PostServerBootstrapped(pump.PostServerBootstrap)
-	server.BootstrapServer(os.Args)
+	miso.PreServerBootstrap(pump.PreServerBootstrap)
+	miso.PostServerBootstrapped(pump.PostServerBootstrap)
+	miso.BootstrapServer(os.Args)
 }

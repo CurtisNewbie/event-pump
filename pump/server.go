@@ -4,20 +4,18 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/curtisnewbie/miso/bus"
-	"github.com/curtisnewbie/miso/core"
-	"github.com/curtisnewbie/miso/server"
+	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
 var (
-	defaultLogHandler = func(rail core.Rail, dce DataChangeEvent) error {
+	defaultLogHandler = func(rail miso.Rail, dce DataChangeEvent) error {
 		rail.Infof("Received event: '%v'", dce)
 		return nil
 	}
 )
 
-func PreServerBootstrap(rail core.Rail) error {
+func PreServerBootstrap(rail miso.Rail) error {
 
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
@@ -54,9 +52,11 @@ func PreServerBootstrap(rail core.Rail) error {
 		mapper := NewMapper()
 
 		// Declare Stream
-		bus.DeclareEventBus(pipeline.Stream)
+		if e := miso.NewEventBus(pipeline.Stream); e != nil {
+			return e
+		}
 
-		OnEventReceived(func(c core.Rail, dce DataChangeEvent) error {
+		OnEventReceived(func(c miso.Rail, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
 				c.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
 				return nil
@@ -86,7 +86,7 @@ func PreServerBootstrap(rail core.Rail) error {
 					}
 				}
 
-				if err := bus.SendToEventBus(c, evt, pipeline.Stream); err != nil {
+				if err := miso.PubEventBus(c, evt, pipeline.Stream); err != nil {
 					return err
 				}
 
@@ -100,7 +100,7 @@ func PreServerBootstrap(rail core.Rail) error {
 	return nil
 }
 
-func PostServerBootstrap(rail core.Rail) error {
+func PostServerBootstrap(rail miso.Rail) error {
 	syncer, err := PrepareSync(rail)
 	if err != nil {
 		return err
@@ -115,11 +115,11 @@ func PostServerBootstrap(rail core.Rail) error {
 		OnEventReceived(defaultLogHandler)
 	}
 
-	go func(rail core.Rail, streamer *replication.BinlogStreamer) {
+	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
 		defer syncer.Close()
 		if e := PumpEvents(rail, syncer, streamer); e != nil {
 			rail.Errorf("PumpEvents encountered error: %v, exiting", e)
-			server.Shutdown()
+			miso.Shutdown()
 		}
 	}(rail.NextSpan(), streamer)
 	return nil

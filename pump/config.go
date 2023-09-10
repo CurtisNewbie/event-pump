@@ -1,8 +1,6 @@
 package pump
 
-import (
-	"github.com/curtisnewbie/miso/core"
-)
+import "github.com/curtisnewbie/miso/miso"
 
 type Condition struct {
 	ColumnChanged []string `mapstructure:"column-changed"`
@@ -35,6 +33,6 @@ type EventPumpConfig struct {
 
 func LoadConfig() EventPumpConfig {
 	var conf EventPumpConfig
-	core.UnmarshalFromProp(&conf)
+	miso.UnmarshalFromProp(&conf)
 	return conf
 }
