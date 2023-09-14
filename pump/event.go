@@ -222,7 +222,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 					// parse the table
 					if table, ok := parseAlterTable(string(qe.Query)); ok {
-						ResetTableInfoCache(c, string(qe.Schema), string(table))
+						ResetTableInfoCache(c, string(qe.Schema), table)
 					}
 				}
 				continue
