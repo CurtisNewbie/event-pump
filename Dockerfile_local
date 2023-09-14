@@ -1,0 +1,16 @@
+FROM alpine:3.17
+
+LABEL author="Yongjie Zhuang"
+LABEL descrption="Event-Pump: simple app to parse and stream MySQL binlog event in real time"
+
+RUN apk --no-cache add tzdata
+
+WORKDIR /usr/src/
+
+# binary is pre-compiled
+COPY event-pump_build ./app_event-pump
+
+ENV TZ=Asia/Shanghai
+
+CMD ["./app_event-pump", "configFile=/usr/src/config/app-conf-prod.yml"]
+
