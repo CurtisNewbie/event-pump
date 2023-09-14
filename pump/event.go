@@ -203,15 +203,23 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
 
 			TODO: The code is quite redundant, refactor it
+
+			About events:
+
+				https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Table__map__event.html
 		*/
 
 		switch ev.Header.EventType {
 
-		case replication.TABLE_MAP_EVENT:
+		case replication.QUERY_EVENT:
 
 			// the table may be changed, reset the cache
-			if tme, ok := ev.Event.(*replication.TableMapEvent); ok {
-				ResetTableInfoCache(c, string(tme.Schema), string(tme.Table))
+			if qe, ok := ev.Event.(*replication.QueryEvent); ok {
+
+				// parse the table
+				if table, ok := parseAlterTable(string(qe.Query)); ok {
+					ResetTableInfoCache(c, string(qe.Schema), string(table))
+				}
 			}
 			continue
 
@@ -434,4 +442,15 @@ func SetGlobalInclude(r *regexp.Regexp) {
 
 func SetGlobalExclude(r *regexp.Regexp) {
 	_globalExclude = r
+}
+
+var alterTableRegex = regexp.MustCompile(`(?i)^\s*alter table ([\w_\d]+) .*$`)
+
+func parseAlterTable(sql string) (string, bool) {
+	matched := alterTableRegex.FindStringSubmatch(sql)
+	if matched == nil {
+		return "", false
+	}
+
+	return matched[1], true
 }
