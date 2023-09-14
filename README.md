@@ -2,7 +2,7 @@
 
 Simple app to parse and stream MySQL binlog event in real time. It's Powered by `github.com/go-mysql-org/go-mysql`.
 
-- Tested on MySQL 8.0.23
+- Tested on MySQL 8.0.23 / 5.7
 
 ## Requirements
 
@@ -10,7 +10,6 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 - Redis
 - Consul
 - RabbitMQ
-- [Goauth](https://github.com/CurtisNewbie/goauth) (optional)
 
 ## Configuration
 
