@@ -179,176 +179,183 @@ func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error
 
 func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
 	isProd := miso.IsProdMode()
-
 	for {
-		ev, err := streamer.GetEvent(c.Ctx)
-		if err != nil {
-			c.Errorf("GetEvent returned error, %v", err)
-			continue // retry GetEvent
-		}
-		if !isProd {
-			ev.Dump(os.Stdout)
-		}
-
-		/*
-			We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually
-			fetched from the master instance using simple queries.
-
-			e.g.,
-
-				ev.Event.(*replication.RowsEvent).Table.ColumnNameString()
-
-			It's not very useful, it requires `binlog_row_metadata=FULL` and MySQL >= 8.0
-
-			https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
-
-			TODO: The code is quite redundant, refactor it
-
-			About events:
-
-				https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Table__map__event.html
-		*/
-
-		switch ev.Header.EventType {
-
-		case replication.QUERY_EVENT:
-
-			// the table may be changed, reset the cache
-			if qe, ok := ev.Event.(*replication.QueryEvent); ok {
-
-				// parse the table
-				if table, ok := parseAlterTable(string(qe.Query)); ok {
-					ResetTableInfoCache(c, string(qe.Schema), string(table))
-				}
+		select {
+		case <-c.Ctx.Done():
+			c.Info("Context cancelled, exiting PumpEvents()")
+			return nil
+		default:
+			ev, err := streamer.GetEvent(c.Ctx)
+			if err != nil {
+				c.Errorf("GetEvent returned error, %v", err)
+				continue // retry GetEvent
 			}
-			continue
+			if !isProd {
+				ev.Dump(os.Stdout)
+			}
 
-		case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
+			/*
+				We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually
+				fetched from the master instance using simple queries.
 
-			if re, ok := ev.Event.(*replication.RowsEvent); ok {
+				e.g.,
 
-				schema := string(re.Table.Schema)
-				if !includeSchema(schema) {
-					goto event_handle_end
+					ev.Event.(*replication.RowsEvent).Table.ColumnNameString()
+
+				It's not very useful, it requires `binlog_row_metadata=FULL` and MySQL >= 8.0
+
+				https://dev.mysql.com/doc/refman/8.0/en/replication-options-binary-log.html#sysvar_binlog_row_metadata
+
+				TODO: The code is quite redundant, refactor it
+
+				About events:
+
+					https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Table__map__event.html
+			*/
+
+			switch ev.Header.EventType {
+
+			case replication.QUERY_EVENT:
+
+				// the table may be changed, reset the cache
+				if qe, ok := ev.Event.(*replication.QueryEvent); ok {
+
+					// parse the table
+					if table, ok := parseAlterTable(string(qe.Query)); ok {
+						ResetTableInfoCache(c, string(qe.Schema), string(table))
+					}
 				}
+				continue
 
-				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
-				if e != nil {
-					return e
-				}
+			case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 
-				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-				dce.Type = TYPE_UPDATE
-				rec := Record{}
+				if re, ok := ev.Event.(*replication.RowsEvent); ok {
 
-				// N is before, N + 1 is after
-				for i, row := range re.Rows {
-					before := (i+1)%2 != 0
-					if before {
-						rec.Before = row
-					} else {
-						rec.After = row
-						dce.Records = append(dce.Records, rec)
-						rec = Record{}
+					schema := string(re.Table.Schema)
+					if !includeSchema(schema) {
+						goto event_handle_end
+					}
+
+					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					if e != nil {
+						return e
+					}
+
+					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+					dce.Type = TYPE_UPDATE
+					rec := Record{}
+
+					// N is before, N + 1 is after
+					for i, row := range re.Rows {
+						before := (i+1)%2 != 0
+						if before {
+							rec.Before = row
+						} else {
+							rec.After = row
+							dce.Records = append(dce.Records, rec)
+							rec = Record{}
+						}
+					}
+
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
 					}
 				}
 
-				if e := callEventHandlers(c, dce); e != nil {
-					return e
+			case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+
+				if re, ok := ev.Event.(*replication.RowsEvent); ok {
+
+					schema := string(re.Table.Schema)
+					if !includeSchema(schema) {
+						goto event_handle_end
+					}
+
+					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					if e != nil {
+						return e
+					}
+
+					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+					dce.Type = TYPE_INSERT
+
+					for _, row := range re.Rows {
+						dce.Records = append(dce.Records, Record{After: row})
+					}
+
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
+					}
+				}
+			case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
+				if re, ok := ev.Event.(*replication.RowsEvent); ok {
+					schema := string(re.Table.Schema)
+					if !includeSchema(schema) {
+						goto event_handle_end
+					}
+
+					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					if e != nil {
+						return e
+					}
+					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
+					dce.Type = TYPE_DELETE
+
+					for _, row := range re.Rows {
+						dce.Records = append(dce.Records, Record{Before: row})
+					}
+
+					if e := callEventHandlers(c, dce); e != nil {
+						return e
+					}
 				}
 			}
 
-		case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+			// end of event handling, we are mainly handling log pos here
+		event_handle_end:
 
-			if re, ok := ev.Event.(*replication.RowsEvent); ok {
+			// in most cases, lostPos is on event header
+			var logPos uint32
 
-				schema := string(re.Table.Schema)
-				if !includeSchema(schema) {
-					goto event_handle_end
-				}
+			// we don't always update pos on all events, even though some of them have position
+			// if we update whenever we can, we may end up being stuck somewhere the next time we
+			// startup the app again
+			switch t := ev.Event.(type) {
 
-				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
-				if e != nil {
-					return e
-				}
+			// for RotateEvent, LogPosition can be 0, have to use Position instead
+			case *replication.RotateEvent:
+				logPos = uint32(t.Position)
+				logFileName = string(t.NextLogName)
 
-				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-				dce.Type = TYPE_INSERT
+			/*
+				- QueryEvent if some DDL is executed
+				- the go-mysql-elasticsearch also update it's pos on XIDEvent
 
-				for _, row := range re.Rows {
-					dce.Records = append(dce.Records, Record{After: row})
-				}
+				according to the doc: "An XID event is generated for a commit of a transaction that modifies one or more tables of an XA-capable storage engine"
+				https://dev.mysql.com/doc/dev/mysql-server/latest/classXid__log__event.html
 
-				if e := callEventHandlers(c, dce); e != nil {
-					return e
-				}
+				it does seems like it's the 2PC thing for between the server and innodb engine in binlog
+			*/
+			case *replication.QueryEvent, *replication.XIDEvent:
+				logPos = ev.Header.LogPos
+
+			// this event shouldn't update our log pos
+			default:
+				continue
 			}
-		case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
-			if re, ok := ev.Event.(*replication.RowsEvent); ok {
-				schema := string(re.Table.Schema)
-				if !includeSchema(schema) {
-					goto event_handle_end
-				}
 
-				tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
-				if e != nil {
-					return e
-				}
-				dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-				dce.Type = TYPE_DELETE
-
-				for _, row := range re.Rows {
-					dce.Records = append(dce.Records, Record{Before: row})
-				}
-
-				if e := callEventHandlers(c, dce); e != nil {
-					return e
-				}
+			// update position on redis
+			if e := updatePos(c, mysql.Position{Name: logFileName, Pos: logPos}); e != nil {
+				return e
 			}
+
+			if miso.IsShuttingDown() {
+				c.Info("Server shutting down")
+				return nil
+			}
+
 		}
 
-		// end of event handling, we are mainly handling log pos here
-	event_handle_end:
-
-		// in most cases, lostPos is on event header
-		var logPos uint32
-
-		// we don't always update pos on all events, even though some of them have position
-		// if we update whenever we can, we may end up being stuck somewhere the next time we
-		// startup the app again
-		switch t := ev.Event.(type) {
-
-		// for RotateEvent, LogPosition can be 0, have to use Position instead
-		case *replication.RotateEvent:
-			logPos = uint32(t.Position)
-			logFileName = string(t.NextLogName)
-
-		/*
-			- QueryEvent if some DDL is executed
-			- the go-mysql-elasticsearch also update it's pos on XIDEvent
-
-			according to the doc: "An XID event is generated for a commit of a transaction that modifies one or more tables of an XA-capable storage engine"
-			https://dev.mysql.com/doc/dev/mysql-server/latest/classXid__log__event.html
-
-			it does seems like it's the 2PC thing for between the server and innodb engine in binlog
-		*/
-		case *replication.QueryEvent, *replication.XIDEvent:
-			logPos = ev.Header.LogPos
-
-		// this event shouldn't update our log pos
-		default:
-			continue
-		}
-
-		// update position on redis
-		if e := updatePos(c, mysql.Position{Name: logFileName, Pos: logPos}); e != nil {
-			return e
-		}
-
-		if miso.IsShuttingDown() {
-			c.Info("Server shutting down")
-			return nil
-		}
 	}
 }
 
