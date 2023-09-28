@@ -21,12 +21,13 @@ func (f columnFilter) Include(rail miso.Rail, evt any) bool {
 	switch ev := evt.(type) {
 	case StreamEvent:
 		if ev.Type != TYPE_UPDATE {
-			return true
+			return false
 		}
 
 		for _, cc := range f.ColumnsChanged {
 			sec, ok := ev.Columns[cc]
 			if ok && sec.Before != sec.After {
+				rail.Debugf("Event included, contains change to the specified columns: %v", f.ColumnsChanged)
 				return true
 			}
 		}
@@ -35,7 +36,7 @@ func (f columnFilter) Include(rail miso.Rail, evt any) bool {
 		return false // the event doesn't include any change to these specified columns
 
 	case DataChangeEvent:
-		return true // doesn't support at all
+		return false // doesn't support at all
 	}
 
 	return true

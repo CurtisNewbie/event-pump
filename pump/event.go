@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -178,7 +177,6 @@ func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error
 }
 
 func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
-	isProd := miso.IsProdMode()
 	for {
 		select {
 		case <-c.Ctx.Done():
@@ -190,9 +188,10 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 				c.Errorf("GetEvent returned error, %v", err)
 				continue // retry GetEvent
 			}
-			if !isProd {
-				ev.Dump(os.Stdout)
-			}
+
+			evtLogBuf := strings.Builder{}
+			ev.Dump(&evtLogBuf)
+			c.Info(evtLogBuf.String())
 
 			/*
 				We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually

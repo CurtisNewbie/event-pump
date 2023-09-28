@@ -84,12 +84,11 @@ func PreServerBootstrap(rail miso.Rail) error {
 					if !filter.Include(c, evt) {
 						continue
 					}
-				}
 
-				if err := miso.PubEventBus(c, evt, pipeline.Stream); err != nil {
-					return err
+					if err := miso.PubEventBus(c, evt, pipeline.Stream); err != nil {
+						return err
+					}
 				}
-
 			}
 			return nil
 		})
