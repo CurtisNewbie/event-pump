@@ -1,14 +1,5 @@
-mode.production: true
-
-app.name: "event-pump"
-
-redis:
-  enabled: true
-  address: "redis"
-  port: 6379
-  username:
-  password:
-  database: 0
+mode.production: false
+app.name: 'event-pump'
 
 server:
   host: "0.0.0.0"
@@ -18,15 +9,20 @@ server:
 
 consul:
   enabled: true
-  consulAddress: consul:8500
-  healthCheckUrl: /health
+  consulAddress: localhost:8500
+
+redis:
+  enabled: true
+  address: localhost
+  port: 6379
+  database: 0
 
 rabbitmq:
   enabled: true
-  host: "rabbitmq"
+  host: localhost
   port: 5672
-  username: "${rabbitmqusername}"
-  password: "${rabbitmqpassword}"
+  username: guest
+  password: guest
   vhost: "/"
 
 tracing.propagation.keys:
@@ -36,32 +32,30 @@ tracing.propagation.keys:
   - role
   - roleno
 
-logging.rolling.file: "/usr/src/logs/${app.name}.log"
-
-goauth.report.enabled: true
+goauth.client.enabled: false
 
 sync:
   server-id: 100
-  user: "${mysqlusername}"
-  password: "${mysqlpassword}"
-  host: "${mysqladdr}"
+  host: localhost
   port: 3306
+  user: root
+  password:
 
 filter:
-  include: 'fileserver'
+  include: ''
   exclude: ''
 
 pipeline:
   - schema: 'fileserver'
     table: 'file_info'
     type: '^(INS)$'
-    stream: 'vfm.file.saved'
+    stream: 'event.bus.vfm.file.saved'
     enabled: true
 
   - schema: 'fileserver'
     table: 'file_info'
     type: '^(UPD)$'
-    stream: 'vfm.file.thumbnail.updated'
+    stream: 'event.bus.vfm.file.thumbnail.updated'
     enabled: true
     condition:
       column-changed:
@@ -70,7 +64,7 @@ pipeline:
   - schema: 'fileserver'
     table: 'file_info'
     type: '^(UPD)$'
-    stream: 'vfm.file.logic.deleted'
+    stream: 'event.bus.vfm.file.logic.deleted'
     enabled: true
     condition:
       column-changed:

@@ -28,7 +28,7 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 | []pipeline.schema                     | regexp for matching schema name                                                                                                                     |               |
 | []pipeline.table                      | regexp for matching table name                                                                                                                      |               |
 | []pipeline.type                       | regexp for matching event type (optional)                                                                                                           |               |
-| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `"event.bus." + ${pipeline.stream}` using routing key `'#'`) |               |
+| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`) |               |
 | []pipeline.enabled                    | whether it's enabled                                                                                                                                |               |
 | []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                         |               |
 

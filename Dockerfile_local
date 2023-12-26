@@ -12,5 +12,5 @@ COPY event-pump_build ./app_event-pump
 
 ENV TZ=Asia/Shanghai
 
-CMD ["./app_event-pump", "configFile=/usr/src/config/app-conf-prod.yml"]
+CMD ["./app_event-pump", "configFile=/usr/src/config/conf.yml"]
 

@@ -3,7 +3,7 @@ module github.com/curtisnewbie/event-pump
 go 1.18
 
 require (
-	github.com/curtisnewbie/miso v0.0.2
+	github.com/curtisnewbie/miso v0.0.12-beta.2
 	github.com/go-mysql-org/go-mysql v1.7.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	gorm.io/gorm v1.23.8
