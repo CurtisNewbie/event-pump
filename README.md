@@ -13,11 +13,11 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 
 MySQL must enable binlog replication (it's enabled on MySQL 8.x by default).
 
-```toml
+```conf
 # /etc/mysql/my.cnf
 
 [mysqld]
-  server_id = 1
+  server_id=1
   log_bin=binlog
 ```
 
