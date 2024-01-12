@@ -46,13 +46,13 @@ filter:
   exclude: ''
 
 pipeline:
-  - schema: 'fileserver'
+  - schema: 'vfm'
     table: 'file_info'
     type: '^(INS)$'
     stream: 'event.bus.vfm.file.saved'
     enabled: true
 
-  - schema: 'fileserver'
+  - schema: 'vfm'
     table: 'file_info'
     type: '^(UPD)$'
     stream: 'event.bus.vfm.file.thumbnail.updated'
@@ -61,7 +61,7 @@ pipeline:
       column-changed:
         - "thumbnail"
 
-  - schema: 'fileserver'
+  - schema: 'vfm'
     table: 'file_info'
     type: '^(UPD)$'
     stream: 'event.bus.vfm.file.logic.deleted'
