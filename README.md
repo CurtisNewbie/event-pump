@@ -7,11 +7,9 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 ## Requirements
 
 - MySQL
-- Redis
-- Consul
 - RabbitMQ
 
-MySQL must enable binlog replication (it's enabled on MySQL 8.x by default).
+MySQL must enable binlog replication (it's enabled by default on MySQL 8.x).
 
 ```conf
 # /etc/mysql/my.cnf
@@ -25,22 +23,23 @@ MySQL must enable binlog replication (it's enabled on MySQL 8.x by default).
 
 For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 
-| Property                              | Description                                                                                                                                         | Default Value |
-|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| sync.server-id                        | server-id used to mimic a replication server                                                                                                        | 100           |
-| sync.user                             | username of the master MySQL instance                                                                                                               | root          |
-| sync.password                         | password of the master MySQL instance                                                                                                               |               |
-| sync.host                             | host of the master MySQL instance                                                                                                                   | 127.0.0.1     |
-| sync.port                             | port of the master MySQL instance                                                                                                                   | 3306          |
-| filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                          |               |
-| filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter    |               |
-| []pipeline                            | list of pipeline config                                                                                                                             |               |
-| []pipeline.schema                     | regexp for matching schema name                                                                                                                     |               |
-| []pipeline.table                      | regexp for matching table name                                                                                                                      |               |
-| []pipeline.type                       | regexp for matching event type (optional)                                                                                                           |               |
-| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`) |               |
-| []pipeline.enabled                    | whether it's enabled                                                                                                                                |               |
-| []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                         |               |
+| Property                              | Description                                                                                                                                      | Default Value |
+|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| sync.server-id                        | server-id used to mimic a replication server                                                                                                     | 100           |
+| sync.user                             | username of the master MySQL instance                                                                                                            | root          |
+| sync.password                         | password of the master MySQL instance                                                                                                            |               |
+| sync.host                             | host of the master MySQL instance                                                                                                                | 127.0.0.1     |
+| sync.port                             | port of the master MySQL instance                                                                                                                | 3306          |
+| sync.pos.file                         | binlog position file **(be careful if you are upgrading event-pump)**                                                                            | binlog_pos    |
+| filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                       |               |
+| filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter |               |
+| []pipeline                            | list of pipeline config                                                                                                                          |               |
+| []pipeline.schema                     | regexp for matching schema name                                                                                                                  |               |
+| []pipeline.table                      | regexp for matching table name                                                                                                                   |               |
+| []pipeline.type                       | regexp for matching event type (optional)                                                                                                        |               |
+| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`)             |               |
+| []pipeline.enabled                    | whether it's enabled                                                                                                                             |               |
+| []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                      |               |
 
 ## Configuration Example
 
@@ -99,3 +98,20 @@ E.g.,
     }
 }
 ```
+
+# Update
+
+- Since v0.0.5, event-pump no longer depends on redis, binlog position is now recorded in a local file, using following format (previously, it's recorded on redis):
+
+  ```
+  {"Name":"binlog.000001","Pos":53318}
+  ```
+
+  If you are upgrading event-pump to >= v0.0.5, you should prepare this position file manually. You can retrieve previous binlog position using redis-cli:
+
+  ```sh
+  get "event-pump:pos:last"
+  # "{\"Name\":\"binlog.000001\",\"Pos\":53318}"
+  ```
+
+  Then write the content to the position file.

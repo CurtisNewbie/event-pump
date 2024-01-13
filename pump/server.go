@@ -52,9 +52,7 @@ func PreServerBootstrap(rail miso.Rail) error {
 		mapper := NewMapper()
 
 		// Declare Stream
-		if e := miso.NewEventBus(pipeline.Stream); e != nil {
-			return e
-		}
+		miso.NewEventBus(pipeline.Stream)
 
 		OnEventReceived(func(c miso.Rail, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
@@ -100,13 +98,19 @@ func PreServerBootstrap(rail miso.Rail) error {
 }
 
 func PostServerBootstrap(rail miso.Rail) error {
+	if err := AttachPosFile(rail); err != nil {
+		return err
+	}
+
 	syncer, err := PrepareSync(rail)
 	if err != nil {
+		DettachPosFile(rail)
 		return err
 	}
 
 	streamer, err := NewStreamer(rail, syncer)
 	if err != nil {
+		DettachPosFile(rail)
 		return err
 	}
 
@@ -115,7 +119,11 @@ func PostServerBootstrap(rail miso.Rail) error {
 	}
 
 	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
-		defer syncer.Close()
+		defer func() {
+			syncer.Close()
+			DettachPosFile(rail)
+		}()
+
 		if e := PumpEvents(rail, syncer, streamer); e != nil {
 			rail.Errorf("PumpEvents encountered error: %v, exiting", e)
 			miso.Shutdown()

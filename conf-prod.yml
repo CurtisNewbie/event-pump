@@ -2,24 +2,9 @@ mode.production: true
 
 app.name: "event-pump"
 
-redis:
-  enabled: true
-  address: "redis"
-  port: 6379
-  username:
-  password:
-  database: 0
-
 server:
   host: "0.0.0.0"
   port: 8088
-  gracefulShutdownTimeSec: 5
-  perf.enabled: false
-
-consul:
-  enabled: true
-  consulAddress: consul:8500
-  healthCheckUrl: /health
 
 rabbitmq:
   enabled: true
@@ -37,8 +22,6 @@ tracing.propagation.keys:
   - roleno
 
 logging.rolling.file: "/usr/src/logs/${app.name}.log"
-
-goauth.report.enabled: true
 
 sync:
   server-id: 100

@@ -2,35 +2,36 @@ package pump
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strings"
 
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
-	"github.com/go-redis/redis"
 	"gorm.io/gorm"
 )
 
 const (
-	PROP_SYNC_SERVER_ID = "sync.server-id"
-	PROP_SYNC_HOST      = "sync.host"
-	PROP_SYNC_PORT      = "sync.port"
-	PROP_SYNC_USER      = "sync.user"
-	PROP_SYNC_PASSWORD  = "sync.password"
+	PropSyncServerId = "sync.server-id"
+	PropSyncHost     = "sync.host"
+	PropSyncPort     = "sync.port"
+	PropSyncUser     = "sync.user"
+	PropSyncPassword = "sync.password"
+	PropSyncPosFile  = "sync.pos.file"
 
 	flavorMysql = "mysql"
+	lastPosKey  = "event-pump:pos:last"
 
-	lastPosKey = "event-pump:pos:last"
-
-	TYPE_INSERT = "INS"
-	TYPE_UPDATE = "UPD"
-	TYPE_DELETE = "DEL"
+	TypeInsert = "INS"
+	TypeUpdate = "UPD"
+	TypeDelete = "DEL"
 )
 
 var (
+	posFile      *os.File = nil
 	logFileName           = ""
 	handlers              = []EventHandler{}
 	tableInfoMap          = make(map[string]TableInfo)
@@ -41,11 +42,12 @@ var (
 )
 
 func init() {
-	miso.SetDefProp(PROP_SYNC_SERVER_ID, 100)
-	miso.SetDefProp(PROP_SYNC_HOST, "127.0.0.1")
-	miso.SetDefProp(PROP_SYNC_PORT, 3306)
-	miso.SetDefProp(PROP_SYNC_USER, "root")
-	miso.SetDefProp(PROP_SYNC_PASSWORD, "")
+	miso.SetDefProp(PropSyncServerId, 100)
+	miso.SetDefProp(PropSyncHost, "127.0.0.1")
+	miso.SetDefProp(PropSyncPort, 3306)
+	miso.SetDefProp(PropSyncUser, "root")
+	miso.SetDefProp(PropSyncPassword, "")
+	miso.SetDefProp(PropSyncPosFile, "binlog_pos")
 }
 
 type Record struct {
@@ -241,7 +243,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 					}
 
 					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-					dce.Type = TYPE_UPDATE
+					dce.Type = TypeUpdate
 					rec := Record{}
 
 					// N is before, N + 1 is after
@@ -276,7 +278,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 					}
 
 					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-					dce.Type = TYPE_INSERT
+					dce.Type = TypeInsert
 
 					for _, row := range re.Rows {
 						dce.Records = append(dce.Records, Record{After: row})
@@ -298,7 +300,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						return e
 					}
 					dce := newDataChangeEvent(tableInfo, re, ev.Header.Timestamp)
-					dce.Type = TYPE_DELETE
+					dce.Type = TypeDelete
 
 					for _, row := range re.Rows {
 						dce.Records = append(dce.Records, Record{Before: row})
@@ -343,7 +345,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 				continue
 			}
 
-			// update position on redis
+			// update position
 			if e := updatePos(c, mysql.Position{Name: logFileName, Pos: logPos}); e != nil {
 				return e
 			}
@@ -360,26 +362,22 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 func updatePos(c miso.Rail, pos mysql.Position) error {
 	c.Infof("Curr Pos: %+v", pos)
-	s, e := json.Marshal(&pos)
+	s, e := json.Marshal(pos)
 	if e != nil {
 		return e
 	}
-
-	sc := miso.GetRedis().Set(lastPosKey, []byte(s), 0)
-	return sc.Err()
+	if _, err := posFile.WriteAt([]byte(s), 0); err != nil {
+		return fmt.Errorf("failed to update pos file, '%v', %w", s, err)
+	}
+	return nil
 }
 
 func lastPos(c miso.Rail) (mysql.Position, error) {
-
-	sc := miso.GetRedis().Get(lastPosKey)
-	if sc.Err() != nil {
-		if errors.Is(sc.Err(), redis.Nil) {
-			return mysql.Position{}, nil
-		}
-		return mysql.Position{}, sc.Err()
+	buf, err := io.ReadAll(posFile)
+	if err != nil {
+		return mysql.Position{}, fmt.Errorf("failed to read pos file, %w", err)
 	}
-
-	s := sc.Val()
+	s := string(buf)
 	if s == "" {
 		return mysql.Position{}, nil
 	}
@@ -404,23 +402,22 @@ func NewStreamer(c miso.Rail, syncer *replication.BinlogSyncer) (*replication.Bi
 
 func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
-		ServerID: uint32(miso.GetPropInt(PROP_SYNC_SERVER_ID)),
+		ServerID: uint32(miso.GetPropInt(PropSyncServerId)),
 		Flavor:   flavorMysql,
-		Host:     miso.GetPropStr(PROP_SYNC_HOST),
-		Port:     uint16(miso.GetPropInt(PROP_SYNC_PORT)),
-		User:     miso.GetPropStr(PROP_SYNC_USER),
-		Password: miso.GetPropStr(PROP_SYNC_PASSWORD),
+		Host:     miso.GetPropStr(PropSyncHost),
+		Port:     uint16(miso.GetPropInt(PropSyncPort)),
+		User:     miso.GetPropStr(PropSyncUser),
+		Password: miso.GetPropStr(PropSyncPassword),
 		Logger:   rail.Logger(),
 	}
 
-	client, err := miso.NewMySQLConn(
-		miso.GetPropStr(PROP_SYNC_USER),
-		miso.GetPropStr(PROP_SYNC_PASSWORD),
-		"",
-		miso.GetPropStr(PROP_SYNC_HOST),
-		miso.GetPropStr(PROP_SYNC_PORT),
-		"",
-	)
+	p := miso.MySQLConnParam{
+		User:     miso.GetPropStr(PropSyncUser),
+		Password: miso.GetPropStr(PropSyncPassword),
+		Host:     miso.GetPropStr(PropSyncHost),
+		Port:     miso.GetPropInt(PropSyncPort),
+	}
+	client, err := miso.NewMySQLConn(rail, p)
 	if err != nil {
 		return nil, err
 	}
@@ -459,4 +456,24 @@ func parseAlterTable(sql string) (string, bool) {
 	}
 
 	return matched[1], true
+}
+
+func AttachPosFile(rail miso.Rail) error {
+	pf := miso.GetPropStr(PropSyncPosFile)
+	rail.Infof("Attaching to pos file: %v", pf)
+	f, err := miso.OpenFile(pf, os.O_CREATE|os.O_RDWR)
+	if err != nil {
+		return fmt.Errorf("failed to attach to pos file: %v, %w", pf, err)
+	}
+	posFile = f
+	rail.Infof("Attached to pos file: %v", pf)
+	return nil
+}
+
+func DettachPosFile(rail miso.Rail) {
+	if posFile == nil {
+		return
+	}
+	posFile.Close()
+	posFile = nil
 }

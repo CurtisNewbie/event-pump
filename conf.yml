@@ -4,18 +4,6 @@ app.name: 'event-pump'
 server:
   host: "0.0.0.0"
   port: 8088
-  gracefulShutdownTimeSec: 5
-  perf.enabled: false
-
-consul:
-  enabled: true
-  consulAddress: localhost:8500
-
-redis:
-  enabled: true
-  address: localhost
-  port: 6379
-  database: 0
 
 rabbitmq:
   enabled: true
@@ -31,8 +19,6 @@ tracing.propagation.keys:
   - username
   - role
   - roleno
-
-goauth.client.enabled: false
 
 sync:
   server-id: 100

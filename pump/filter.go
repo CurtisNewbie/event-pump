@@ -20,7 +20,7 @@ type columnFilter struct {
 func (f columnFilter) Include(rail miso.Rail, evt any) bool {
 	switch ev := evt.(type) {
 	case StreamEvent:
-		if ev.Type != TYPE_UPDATE {
+		if ev.Type != TypeUpdate {
 			return false
 		}
 
