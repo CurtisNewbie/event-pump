@@ -29,6 +29,7 @@ sync:
   password: "${mysqlpassword}"
   host: "${mysqladdr}"
   port: 3306
+  pos.file: "/usr/src/data/binlog_pos"
 
 filter:
   include: 'fileserver'
