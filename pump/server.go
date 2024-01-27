@@ -121,7 +121,9 @@ func PostServerBootstrap(rail miso.Rail) error {
 	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
 		defer func() {
 			syncer.Close()
-			DettachPosFile(rail)
+			miso.AddShutdownHook(func() {
+				DettachPosFile(rail)
+			})
 		}()
 
 		if e := PumpEvents(rail, syncer, streamer); e != nil {
