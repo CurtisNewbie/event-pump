@@ -56,7 +56,7 @@ type Record struct {
 }
 
 type DataChangeEvent struct {
-	Timestamp uint32         `json:"timestamp"` // epoc time second
+	Timestamp uint32         `json:"timestamp"` // epoch time second
 	Schema    string         `json:"schema"`
 	Table     string         `json:"table"`
 	Type      string         `json:"type"` // INS-INSERT, UPD-UPDATE, DEL-DELETE
