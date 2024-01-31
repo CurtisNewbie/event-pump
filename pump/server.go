@@ -104,13 +104,13 @@ func PostServerBootstrap(rail miso.Rail) error {
 
 	syncer, err := PrepareSync(rail)
 	if err != nil {
-		DettachPosFile(rail)
+		DetachPosFile(rail)
 		return err
 	}
 
 	streamer, err := NewStreamer(rail, syncer)
 	if err != nil {
-		DettachPosFile(rail)
+		DetachPosFile(rail)
 		return err
 	}
 
@@ -122,7 +122,7 @@ func PostServerBootstrap(rail miso.Rail) error {
 		defer func() {
 			syncer.Close()
 			miso.AddShutdownHook(func() {
-				DettachPosFile(rail)
+				DetachPosFile(rail)
 			})
 		}()
 
