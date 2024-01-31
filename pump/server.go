@@ -3,6 +3,7 @@ package pump
 import (
 	"errors"
 	"regexp"
+	"sync"
 
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -13,6 +14,7 @@ var (
 		rail.Infof("Received event: '%v'", dce)
 		return nil
 	}
+	pumpEventWg sync.WaitGroup
 )
 
 func PreServerBootstrap(rail miso.Rail) error {
@@ -118,17 +120,21 @@ func PostServerBootstrap(rail miso.Rail) error {
 		OnEventReceived(defaultLogHandler)
 	}
 
+	// make sure the goroutine exit before the server stops
+	miso.AddShutdownHook(func() { pumpEventWg.Wait() })
+
+	pumpEventWg.Add(1)
 	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
 		defer func() {
 			syncer.Close()
-			miso.AddShutdownHook(func() {
-				DetachPosFile(rail)
-			})
+			DetachPosFile(rail)
+			pumpEventWg.Done()
 		}()
 
 		if e := PumpEvents(rail, syncer, streamer); e != nil {
 			rail.Errorf("PumpEvents encountered error: %v, exiting", e)
 			miso.Shutdown()
+			return
 		}
 	}(rail.NextSpan(), streamer)
 	return nil
