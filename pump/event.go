@@ -7,6 +7,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -31,6 +33,13 @@ const (
 )
 
 var (
+	currPos mysql.Position = mysql.Position{Name: "", Pos: 0}
+	nextPos mysql.Position = currPos
+	posMu   sync.Mutex
+
+	// posFile is flushed in every 500ms (at most)
+	updatePosFileTicker *miso.TickRunner = miso.NewTickRuner(time.Millisecond*500, FlushPosFile)
+
 	posFile      *os.File = nil
 	logFileName           = ""
 	handlers              = []EventHandler{}
@@ -56,7 +65,7 @@ type Record struct {
 }
 
 type DataChangeEvent struct {
-	Timestamp uint32         `json:"timestamp"` // epoc time second
+	Timestamp uint32         `json:"timestamp"` // epoch time second
 	Schema    string         `json:"schema"`
 	Table     string         `json:"table"`
 	Type      string         `json:"type"` // INS-INSERT, UPD-UPDATE, DEL-DELETE
@@ -346,9 +355,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			}
 
 			// update position
-			if e := updatePos(c, mysql.Position{Name: logFileName, Pos: logPos}); e != nil {
-				return e
-			}
+			updatePos(c, mysql.Position{Name: logFileName, Pos: logPos})
 
 			if miso.IsShuttingDown() {
 				c.Info("Server shutting down")
@@ -360,16 +367,11 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 	}
 }
 
-func updatePos(c miso.Rail, pos mysql.Position) error {
-	c.Infof("Curr Pos: %+v", pos)
-	s, e := json.Marshal(pos)
-	if e != nil {
-		return e
-	}
-	if _, err := posFile.WriteAt([]byte(s), 0); err != nil {
-		return fmt.Errorf("failed to update pos file, '%v', %w", s, err)
-	}
-	return nil
+func updatePos(c miso.Rail, pos mysql.Position) {
+	c.Infof("Next pos: %+v", pos)
+	posMu.Lock()
+	defer posMu.Unlock()
+	nextPos = pos
 }
 
 func lastPos(c miso.Rail) (mysql.Position, error) {
@@ -467,13 +469,38 @@ func AttachPosFile(rail miso.Rail) error {
 	}
 	posFile = f
 	rail.Infof("Attached to pos file: %v", pf)
+
+	// start ticker to periodically flush posFile
+	updatePosFileTicker.Start()
 	return nil
 }
 
-func DettachPosFile(rail miso.Rail) {
+func DetachPosFile(rail miso.Rail) {
 	if posFile == nil {
 		return
 	}
+	FlushPosFile()
 	posFile.Close()
 	posFile = nil
+}
+
+func FlushPosFile() {
+	posMu.Lock()
+	defer posMu.Unlock()
+	if currPos.Name == nextPos.Name && currPos.Pos == nextPos.Pos {
+		return
+	}
+
+	s, e := json.Marshal(nextPos)
+	if e != nil {
+		miso.Errorf("failed to update posFile, unable to marshal pos %+v, %v", nextPos, e)
+		return
+	}
+	posFile.Truncate(0)
+	if _, err := posFile.WriteAt([]byte(s), 0); err != nil {
+		miso.Errorf("failed to write posFile, content: %s, %v", s, e)
+		return
+	}
+	miso.Infof("pos moved from %+v to %+v", currPos, nextPos)
+	currPos = nextPos
 }
