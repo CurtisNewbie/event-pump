@@ -143,3 +143,9 @@ func PostServerBootstrap(rail miso.Rail) error {
 	}(nrail, streamer)
 	return nil
 }
+
+func BootstrapServer(args []string) {
+	miso.PreServerBootstrap(PreServerBootstrap)
+	miso.PostServerBootstrapped(PostServerBootstrap)
+	miso.BootstrapServer(args)
+}
