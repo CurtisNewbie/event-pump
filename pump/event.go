@@ -190,11 +190,11 @@ func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error
 func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
 	for {
 		select {
-		case <-c.Ctx.Done():
+		case <-c.Context().Done():
 			c.Info("Context cancelled, exiting PumpEvents()")
 			return nil
 		default:
-			ev, err := streamer.GetEvent(c.Ctx)
+			ev, err := streamer.GetEvent(c.Context())
 			if err != nil {
 				c.Errorf("GetEvent returned error, %v", err)
 				continue // retry GetEvent
@@ -410,7 +410,7 @@ func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 		Port:     uint16(miso.GetPropInt(PropSyncPort)),
 		User:     miso.GetPropStr(PropSyncUser),
 		Password: miso.GetPropStr(PropSyncPassword),
-		Logger:   rail.Logger(),
+		Logger:   rail,
 	}
 
 	p := miso.MySQLConnParam{

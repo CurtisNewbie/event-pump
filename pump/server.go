@@ -121,7 +121,11 @@ func PostServerBootstrap(rail miso.Rail) error {
 	}
 
 	// make sure the goroutine exit before the server stops
-	miso.AddShutdownHook(func() { pumpEventWg.Wait() })
+	nrail, cancel := rail.NextSpan().WithCancel()
+	miso.AddShutdownHook(func() {
+		cancel()
+		pumpEventWg.Wait()
+	})
 
 	pumpEventWg.Add(1)
 	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
@@ -136,6 +140,6 @@ func PostServerBootstrap(rail miso.Rail) error {
 			miso.Shutdown()
 			return
 		}
-	}(rail.NextSpan(), streamer)
+	}(nrail, streamer)
 	return nil
 }
