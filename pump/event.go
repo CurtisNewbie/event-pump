@@ -501,6 +501,11 @@ func FlushPosFile() {
 		miso.Errorf("failed to write posFile, content: %s, %v", s, e)
 		return
 	}
+	if err := posFile.Sync(); err != nil {
+		miso.Errorf("failed to fsync posFile, content: %s, %v", s, e)
+		return
+	}
+
 	miso.Infof("pos moved from %+v to %+v", currPos, nextPos)
 	currPos = nextPos
 }
