@@ -30,6 +30,7 @@ sync:
   host: "${mysqladdr}"
   port: 3306
   pos.file: "/usr/src/data/binlog_pos"
+  max-reconnect: 30
 
 filter:
   include: 'fileserver'

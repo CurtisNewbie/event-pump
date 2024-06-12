@@ -2,12 +2,14 @@ package pump
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/curtisnewbie/miso/miso"
@@ -17,12 +19,13 @@ import (
 )
 
 const (
-	PropSyncServerId = "sync.server-id"
-	PropSyncHost     = "sync.host"
-	PropSyncPort     = "sync.port"
-	PropSyncUser     = "sync.user"
-	PropSyncPassword = "sync.password"
-	PropSyncPosFile  = "sync.pos.file"
+	PropSyncServerId     = "sync.server-id"
+	PropSyncHost         = "sync.host"
+	PropSyncPort         = "sync.port"
+	PropSyncUser         = "sync.user"
+	PropSyncPassword     = "sync.password"
+	PropSyncPosFile      = "sync.pos.file"
+	PropSyncMaxReconnect = "sync.max-reconnect"
 
 	flavorMysql = "mysql"
 	lastPosKey  = "event-pump:pos:last"
@@ -50,6 +53,10 @@ var (
 	_globalExclude *regexp.Regexp = nil
 )
 
+var (
+	resyncErrCount int32 = 0
+)
+
 func init() {
 	miso.SetDefProp(PropSyncServerId, 100)
 	miso.SetDefProp(PropSyncHost, "127.0.0.1")
@@ -57,6 +64,7 @@ func init() {
 	miso.SetDefProp(PropSyncUser, "root")
 	miso.SetDefProp(PropSyncPassword, "")
 	miso.SetDefProp(PropSyncPosFile, "binlog_pos")
+	miso.SetDefProp(PropSyncMaxReconnect, 120)
 }
 
 type Record struct {
@@ -197,9 +205,15 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			ev, err := streamer.GetEvent(c.Context())
 			if err != nil {
 				c.Errorf("GetEvent returned error, %v", err)
+				if errors.Is(err, replication.ErrNeedSyncAgain) {
+					if atomic.AddInt32(&resyncErrCount, 1) > 9 {
+						return err
+					}
+				}
 				continue // retry GetEvent
 			}
 
+			atomic.StoreInt32(&resyncErrCount, 0) // reset the err count
 			evtLogBuf := strings.Builder{}
 			ev.Dump(&evtLogBuf)
 			c.Info(evtLogBuf.String())
@@ -404,13 +418,14 @@ func NewStreamer(c miso.Rail, syncer *replication.BinlogSyncer) (*replication.Bi
 
 func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 	cfg := replication.BinlogSyncerConfig{
-		ServerID: uint32(miso.GetPropInt(PropSyncServerId)),
-		Flavor:   flavorMysql,
-		Host:     miso.GetPropStr(PropSyncHost),
-		Port:     uint16(miso.GetPropInt(PropSyncPort)),
-		User:     miso.GetPropStr(PropSyncUser),
-		Password: miso.GetPropStr(PropSyncPassword),
-		Logger:   rail,
+		ServerID:             uint32(miso.GetPropInt(PropSyncServerId)),
+		Flavor:               flavorMysql,
+		Host:                 miso.GetPropStr(PropSyncHost),
+		Port:                 uint16(miso.GetPropInt(PropSyncPort)),
+		User:                 miso.GetPropStr(PropSyncUser),
+		Password:             miso.GetPropStr(PropSyncPassword),
+		MaxReconnectAttempts: miso.GetPropInt(PropSyncMaxReconnect),
+		Logger:               rail,
 	}
 
 	p := miso.MySQLConnParam{

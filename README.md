@@ -24,13 +24,14 @@ MySQL must enable binlog replication (it's enabled by default on MySQL 8.x).
 For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 
 | Property                              | Description                                                                                                                                      | Default Value |
-|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
 | sync.server-id                        | server-id used to mimic a replication server                                                                                                     | 100           |
 | sync.user                             | username of the master MySQL instance                                                                                                            | root          |
 | sync.password                         | password of the master MySQL instance                                                                                                            |               |
 | sync.host                             | host of the master MySQL instance                                                                                                                | 127.0.0.1     |
 | sync.port                             | port of the master MySQL instance                                                                                                                | 3306          |
 | sync.pos.file                         | binlog position file **(be careful if you are upgrading event-pump)**                                                                            | binlog_pos    |
+| sync.max-reconnect                    | max reconnect attempts (reconnect every second, 0 means infinite retry)                                                                          | 120           |
 | filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                       |               |
 | filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter |               |
 | []pipeline                            | list of pipeline config                                                                                                                          |               |
@@ -45,14 +46,14 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 
 ```yaml
 filter:
-  include: '^(my_db|another_db)$'
-  exclude: '^(system_db)$'
+  include: "^(my_db|another_db)$"
+  exclude: "^(system_db)$"
 
 pipeline:
-  - schema: '.*'
-    table: '.*'
-    type: '(INS|UPD)'
-    stream: 'data-change.echo'
+  - schema: ".*"
+    table: ".*"
+    type: "(INS|UPD)"
+    stream: "data-change.echo"
     enabled: true
 ```
 
@@ -80,22 +81,22 @@ E.g.,
 
 ```json
 {
-    "timestamp": 1688199982,
-    "schema": "my_db",
-    "table": "my_table",
-    "type": "INS",
-    "columns": {
-        "id": {
-            "dataType": "int",
-            "before": "1",
-            "after": "1"
-        },
-        "name": {
-            "dataType": "varchar",
-            "before": "banana",
-            "after": "apple"
-        }
+  "timestamp": 1688199982,
+  "schema": "my_db",
+  "table": "my_table",
+  "type": "INS",
+  "columns": {
+    "id": {
+      "dataType": "int",
+      "before": "1",
+      "after": "1"
+    },
+    "name": {
+      "dataType": "varchar",
+      "before": "banana",
+      "after": "apple"
     }
+  }
 }
 ```
 
