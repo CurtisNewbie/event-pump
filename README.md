@@ -116,3 +116,21 @@ E.g.,
   ```
 
   Then write the content to the position file.
+
+# Maintenance
+
+To recover from earliest binlog position:
+
+Connect master instance to query the earilest binlog file name and position:
+
+```sh
+show binlog events limit 1;
+
+# +------------------+-----+-------------+-----------+-------------+-----------------------------------+
+# | Log_name         | Pos | Event_type  | Server_id | End_log_pos | Info                              |
+# +------------------+-----+-------------+-----------+-------------+-----------------------------------+
+# | mysql-bin.000292 |   4 | Format_desc |  ******** |         126 | Server ver: 8.0.36, Binlog ver: 4 |
+# +------------------+-----+-------------+-----------+-------------+-----------------------------------+
+```
+
+Then update the binlog name and position back to the `binlog_pos` file, and then restart event-pump.
