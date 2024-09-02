@@ -134,3 +134,8 @@ show binlog events limit 1;
 ```
 
 Then update the binlog name and position back to the `binlog_pos` file, and then restart event-pump.
+
+
+# Todo
+
+- [ ] Supports HA using ZooKeeper.
