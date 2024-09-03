@@ -8,10 +8,10 @@ server:
 
 rabbitmq:
   enabled: true
-  host: "rabbitmq"
+  host: "${RABBITMQ_ADDR}"
   port: 5672
-  username: "${rabbitmqusername}"
-  password: "${rabbitmqpassword}"
+  username: "${RABBITMQ_USERNAME}"
+  password: "${RABBITMQ_PASSWORD}"
   vhost: "/"
 
 tracing.propagation.keys:
@@ -25,9 +25,9 @@ logging.rolling.file: "/usr/src/logs/${app.name}.log"
 
 sync:
   server-id: 100
-  user: "${mysqlusername}"
-  password: "${mysqlpassword}"
-  host: "${mysqladdr}"
+  user: "${MYSQL_USERNAME}"
+  password: "${MYSQL_PASSWORD}"
+  host: "${MYSQL_HOST}"
   port: 3306
   pos.file: "/usr/src/data/binlog_pos"
   max-reconnect: 30
