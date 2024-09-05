@@ -222,7 +222,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			atomic.StoreInt32(&resyncErrCount, 0) // reset the err count
 			evtLogBuf := strings.Builder{}
 			ev.Dump(&evtLogBuf)
-			c.Info(evtLogBuf.String())
+			c.Debug(evtLogBuf.String())
 
 			/*
 				We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually
