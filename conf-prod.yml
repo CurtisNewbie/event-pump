@@ -32,6 +32,12 @@ sync:
   pos.file: "/usr/src/data/binlog_pos"
   max-reconnect: 30
 
+ha:
+  enabled: false
+  zookeeper:
+    host:
+      - "127.0.0.1"
+
 filter:
   include: 'fileserver'
   exclude: ''

@@ -28,7 +28,6 @@ const (
 	PropSyncMaxReconnect = "sync.max-reconnect"
 
 	flavorMysql = "mysql"
-	lastPosKey  = "event-pump:pos:last"
 
 	TypeInsert = "INS"
 	TypeUpdate = "UPD"
@@ -40,8 +39,8 @@ var (
 	nextPos mysql.Position = currPos
 	posMu   sync.Mutex
 
-	// posFile is flushed in every 500ms (at most)
-	updatePosFileTicker *miso.TickRunner = miso.NewTickRuner(time.Millisecond*500, FlushPosFile)
+	// posFile is flushed in every 1s (at most)
+	updatePosFileTicker *miso.TickRunner = miso.NewTickRuner(time.Millisecond*1000, FlushPos)
 
 	posFile      *os.File = nil
 	logFileName           = ""
@@ -51,6 +50,13 @@ var (
 
 	_globalInclude *regexp.Regexp = nil
 	_globalExclude *regexp.Regexp = nil
+)
+
+var (
+	doAttachPosFunc func(rail miso.Rail) error           = attachLocalPosFile
+	doDetachPosFunc func(rail miso.Rail)                 = detachLocalPosFile
+	doFlushPosFunc  func(byt []byte) error               = flushLocalPosFile
+	doReadPosFunc   func(rail miso.Rail) ([]byte, error) = readLocalPosFile
 )
 
 var (
@@ -388,28 +394,12 @@ func updatePos(c miso.Rail, pos mysql.Position) {
 	nextPos = pos
 }
 
-func lastPos(c miso.Rail) (mysql.Position, error) {
-	buf, err := io.ReadAll(posFile)
-	if err != nil {
-		return mysql.Position{}, fmt.Errorf("failed to read pos file, %w", err)
-	}
-	s := string(buf)
-	if s == "" {
-		return mysql.Position{}, nil
-	}
-
-	var pos mysql.Position
-	e := json.Unmarshal([]byte(s), &pos)
-	if e != nil {
-		return mysql.Position{}, e
-	}
-
-	c.Infof("Last position: %v - %v", pos.Name, pos.Pos)
-	return pos, nil
+func readLocalPosFile(c miso.Rail) ([]byte, error) {
+	return io.ReadAll(posFile)
 }
 
 func NewStreamer(c miso.Rail, syncer *replication.BinlogSyncer) (*replication.BinlogStreamer, error) {
-	pos, err := lastPos(c)
+	pos, err := ReadPos(c)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +465,16 @@ func parseAlterTable(sql string) (string, bool) {
 	return matched[1], true
 }
 
-func AttachPosFile(rail miso.Rail) error {
+func AttachPos(rail miso.Rail) error {
+	err := doAttachPosFunc(rail)
+	if err == nil {
+		// start ticker to periodically flush posFile
+		updatePosFileTicker.Start()
+	}
+	return err
+}
+
+func attachLocalPosFile(rail miso.Rail) error {
 	pf := miso.GetPropStr(PropSyncPosFile)
 	rail.Infof("Attaching to pos file: %v", pf)
 	f, err := miso.OpenFile(pf, os.O_CREATE|os.O_RDWR)
@@ -484,43 +483,106 @@ func AttachPosFile(rail miso.Rail) error {
 	}
 	posFile = f
 	rail.Infof("Attached to pos file: %v", pf)
-
-	// start ticker to periodically flush posFile
-	updatePosFileTicker.Start()
 	return nil
 }
 
-func DetachPosFile(rail miso.Rail) {
+func DetachPos(rail miso.Rail) {
+	FlushPos()
+	doDetachPosFunc(rail)
+}
+
+func detachLocalPosFile(rail miso.Rail) {
 	if posFile == nil {
 		return
 	}
-	FlushPosFile()
 	posFile.Close()
 	posFile = nil
+	rail.Info("Local posFile detached")
 }
 
-func FlushPosFile() {
+func FlushPos() {
 	posMu.Lock()
 	defer posMu.Unlock()
 	if currPos.Name == nextPos.Name && currPos.Pos == nextPos.Pos {
 		return
 	}
-
 	s, e := json.Marshal(nextPos)
 	if e != nil {
 		miso.Errorf("failed to update posFile, unable to marshal pos %+v, %v", nextPos, e)
 		return
 	}
+	err := doFlushPosFunc(s)
+	if err == nil {
+		miso.Infof("pos moved from %+v to %+v", currPos, nextPos)
+		currPos = nextPos
+	}
+}
+
+func flushLocalPosFile(s []byte) error {
 	posFile.Truncate(0)
-	if _, err := posFile.WriteAt([]byte(s), 0); err != nil {
-		miso.Errorf("failed to write posFile, content: %s, %v", s, e)
-		return
+	if _, err := posFile.WriteAt(s, 0); err != nil {
+		return fmt.Errorf("failed to write posFile, content: %s, %v", s, err)
 	}
 	if err := posFile.Sync(); err != nil {
-		miso.Errorf("failed to fsync posFile, content: %s, %v", s, e)
-		return
+		return fmt.Errorf("failed to fsync posFile, content: %s, %v", s, err)
+	}
+	return nil
+}
+
+func SetupPosFileStorage(isHaMode bool) {
+	if isHaMode {
+		doAttachPosFunc = attachZkPosFile
+		doDetachPosFunc = detachZkPosFile
+		doFlushPosFunc = flushZkPosFile
+		doReadPosFunc = readZkPosFile
+	}
+}
+
+func ReadPos(rail miso.Rail) (mysql.Position, error) {
+	byt, err := doReadPosFunc(rail)
+	if err != nil || byt == nil {
+		return mysql.Position{}, err
+	}
+	s := miso.UnsafeByt2Str(byt)
+	if s == "" {
+		return mysql.Position{}, nil
 	}
 
-	miso.Infof("pos moved from %+v to %+v", currPos, nextPos)
-	currPos = nextPos
+	var pos mysql.Position
+	e := json.Unmarshal([]byte(s), &pos)
+	if e != nil {
+		return mysql.Position{}, e
+	}
+
+	rail.Infof("Last position: %v - %v", pos.Name, pos.Pos)
+	return pos, nil
+}
+
+func attachZkPosFile(rail miso.Rail) error {
+	buf, err := readZkPosFile(rail)
+	if err == nil && buf == nil {
+		// node doesn't exist
+		pf := miso.GetPropStr(PropSyncPosFile)
+		if pf != "" {
+			if f, err := miso.ReadFileAll(pf); err == nil {
+				if er := ZkWritePos(f); er != nil {
+					rail.Warnf("Unable to find pos node on Zookeeper. Attempted to fallback to local pos file but failed, %v", er)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func detachZkPosFile(rail miso.Rail) {
+	// do nothing as indended
+}
+
+func flushZkPosFile(byt []byte) error {
+	return ZkWritePos(byt)
+}
+
+func readZkPosFile(rail miso.Rail) ([]byte, error) {
+	return ZkReadPos()
 }

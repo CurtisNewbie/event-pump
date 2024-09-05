@@ -2,6 +2,7 @@ package pump
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"sync"
 
@@ -99,48 +100,67 @@ func PreServerBootstrap(rail miso.Rail) error {
 	return nil
 }
 
+var (
+	syncRunOnce sync.Once
+)
+
 func PostServerBootstrap(rail miso.Rail) error {
-	if err := AttachPosFile(rail); err != nil {
-		return err
-	}
 
-	syncer, err := PrepareSync(rail)
-	if err != nil {
-		DetachPosFile(rail)
-		return err
-	}
+	haEnabled := miso.GetPropBool("ha.enabled")
+	SetupPosFileStorage(haEnabled)
 
-	streamer, err := NewStreamer(rail, syncer)
-	if err != nil {
-		DetachPosFile(rail)
-		return err
-	}
-
-	if !HasAnyEventHandler() {
-		OnEventReceived(defaultLogHandler)
-	}
-
-	// make sure the goroutine exit before the server stops
-	nrail, cancel := rail.NextSpan().WithCancel()
-	miso.AddShutdownHook(func() {
-		cancel()
-		pumpEventWg.Wait()
-	})
-
-	pumpEventWg.Add(1)
-	go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
-		defer func() {
-			syncer.Close()
-			DetachPosFile(rail)
-			pumpEventWg.Done()
-		}()
-
-		if e := PumpEvents(rail, syncer, streamer); e != nil {
-			rail.Errorf("PumpEvents encountered error: %v, exiting", e)
-			miso.Shutdown()
-			return
+	startSync := func() {
+		if err := AttachPos(rail); err != nil {
+			panic(fmt.Errorf("failed to attach pos file, %v", err))
 		}
-	}(nrail, streamer)
+
+		syncer, err := PrepareSync(rail)
+		if err != nil {
+			DetachPos(rail)
+			panic(fmt.Errorf("failed to create syncer, %v", err))
+		}
+
+		streamer, err := NewStreamer(rail, syncer)
+		if err != nil {
+			DetachPos(rail)
+			panic(fmt.Errorf("failed to create streamer, %v", err))
+		}
+
+		if !HasAnyEventHandler() {
+			OnEventReceived(defaultLogHandler)
+		}
+
+		// make sure the goroutine exit before the server stops
+		nrail, cancel := rail.NextSpan().WithCancel()
+		miso.AddShutdownHook(func() {
+			cancel()
+			pumpEventWg.Wait()
+		})
+
+		pumpEventWg.Add(1)
+		go func(rail miso.Rail, streamer *replication.BinlogStreamer) {
+			defer func() {
+				syncer.Close()
+				DetachPos(rail)
+				pumpEventWg.Done()
+			}()
+
+			if e := PumpEvents(rail, syncer, streamer); e != nil {
+				rail.Errorf("PumpEvents encountered error: %v, exiting", e)
+				miso.Shutdown()
+				return
+			}
+		}(nrail, streamer)
+	}
+
+	if haEnabled {
+		return ZkElectLeader(rail, func() {
+			syncRunOnce.Do(startSync)
+		})
+	} else {
+		startSync()
+	}
+
 	return nil
 }
 

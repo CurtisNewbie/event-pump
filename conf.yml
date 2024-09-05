@@ -28,6 +28,12 @@ sync:
   password:
   max-reconnect: 10
 
+ha:
+  enabled: false
+  zookeeper:
+    host:
+      - "127.0.0.1"
+
 filter:
   include: ''
   exclude: ''

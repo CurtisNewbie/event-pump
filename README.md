@@ -8,6 +8,7 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 
 - MySQL
 - RabbitMQ
+- ZooKeeper (if HA mode is enabled)
 
 MySQL must enable binlog replication (it's enabled by default on MySQL 8.x).
 
@@ -102,7 +103,7 @@ E.g.,
 
 # Update
 
-- Since v0.0.5, event-pump no longer depends on redis, binlog position is now recorded in a local file, using following format (previously, it's recorded on redis):
+- Since v0.0.5, (**standalone**) event-pump no longer depends on redis, binlog position is now recorded in a local file, using following format (previously, it's recorded on redis):
 
   ```
   {"Name":"binlog.000001","Pos":53318}
@@ -135,7 +136,28 @@ show binlog events limit 1;
 
 Then update the binlog name and position back to the `binlog_pos` file, and then restart event-pump.
 
+# High-Availability Mode
 
-# Todo
+event-pump also supports HA using ZooKeeper. Enable HA mode as follows:
 
-- [ ] Supports HA using ZooKeeper.
+```yaml
+ha:
+  enabled: true
+  zookeeper:
+    host:
+      - "127.0.0.1"
+```
+
+All event-pump instances attempt to create Ephemeral Node `/eventpump/leader` on startup. Only one instance can succeed, and the one that created the node is elected to be leader. Other nodes will standby and subscribe to changes to the node. If leader node is somehow down, standby instances will be notices and attempt the leader election again.
+
+If the HA mode is enabled, binlog position is nolonger stored in a local file. Instead, the binlog position is set to Persistent Node `/eventpump/pos` using the same json format. When leader node bootstraps, and it notices that the node `/eventpump/pos` doesn't exist, it will attempt to read local binlog pos file, and save the value to ZooKeeper.
+
+E.g., Using `zkCli`:
+
+```sh
+[zk: localhost:2181(CONNECTED) 3] get /eventpump/leader
+# 10.200.1.38
+
+[zk: localhost:2181(CONNECTED) 22] get /eventpump/pos
+# {"Name":"mysql-bin.000004","Pos":2842305}
+```
