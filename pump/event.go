@@ -266,6 +266,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						goto event_handle_end
 					}
 
+					// TODO: this is a problem if the delay is way too high
 					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
 					if e != nil {
 						return e
