@@ -46,12 +46,16 @@ var (
 
 	posFile      *os.File = nil
 	logFileName           = ""
-	handlers              = []EventHandler{}
 	tableInfoMap          = make(map[string]TableInfo)
 	conn         *gorm.DB = nil
 
 	_globalInclude *regexp.Regexp = nil
 	_globalExclude *regexp.Regexp = nil
+)
+
+var (
+	handlers = map[string]EventHandler{}
+	hdmu     sync.RWMutex
 )
 
 var (
@@ -128,20 +132,38 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 type EventHandler func(c miso.Rail, dce DataChangeEvent) error
 
 func HasAnyEventHandler() bool {
+	hdmu.RLock()
+	defer hdmu.RUnlock()
 	return len(handlers) > 0
 }
 
-func OnEventReceived(handler EventHandler) {
-	handlers = append(handlers, handler)
+func OnEventReceived(handler EventHandler) string {
+	hdmu.Lock()
+	defer hdmu.Unlock()
+	for {
+		id := util.ERand(32)
+		if _, ok := handlers[id]; !ok {
+			handlers[id] = handler
+			return id
+		}
+	}
 }
 
 func callEventHandlers(c miso.Rail, dce DataChangeEvent) error {
+	hdmu.RLock()
+	defer hdmu.RUnlock()
 	for _, handle := range handlers {
 		if e := handle(c, dce); e != nil {
 			return e
 		}
 	}
 	return nil
+}
+
+func RemoveEventHandler(handlerId string) {
+	hdmu.Lock()
+	defer hdmu.Unlock()
+	delete(handlers, handlerId)
 }
 
 func newDataChangeEvent(table TableInfo, re *replication.RowsEvent, timestamp uint32) DataChangeEvent {

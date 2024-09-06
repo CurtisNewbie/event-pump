@@ -7,6 +7,7 @@ type Condition struct {
 }
 
 type Pipeline struct {
+	HandlerId string `json:"-"`
 	Schema    string
 	Table     string
 	Type      string
