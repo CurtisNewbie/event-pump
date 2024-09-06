@@ -42,6 +42,8 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 | []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`)             |               |
 | []pipeline.enabled                    | whether it's enabled                                                                                                                             |               |
 | []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                      |               |
+| ha.enabled                            | Enable HA Mode                                                                                                                                   | false         |
+| ha.zookeeper.[]host                   | ZooKeeper Hosts                                                                                                                                  |               |
 
 ## Configuration Example
 
@@ -117,6 +119,8 @@ E.g.,
   ```
 
   Then write the content to the position file.
+
+- Since v0.0.10, event-pump introduces HA mode. In HA Mode, multiple event-pump instances undertake leader election using ZooKeeper; only the leader node is responsible for binlog fetching and parsing, and the remaining nodes are backup. Since there are more than one node running, the binlog position is stored in ZooKeeper as well (see `High-Availability Mode` section).
 
 # Maintenance
 
