@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
 	"github.com/go-zookeeper/zk"
 )
 
@@ -119,7 +120,7 @@ func ZkElectLeader(rail miso.Rail, hook func()) error {
 		}()
 	}
 
-	err := ZkCreateEph(leaderp, miso.UnsafeStr2Byt(ip))
+	err := ZkCreateEph(leaderp, util.UnsafeStr2Byt(ip))
 	if err != nil {
 		if errors.Is(err, zk.ErrNodeExists) {
 			rail.Info("Another event-pump instance is already running, waiting to become leader")

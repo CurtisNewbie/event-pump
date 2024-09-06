@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
@@ -16,6 +17,7 @@ var (
 		return nil
 	}
 	pumpEventWg sync.WaitGroup
+	syncRunOnce sync.Once
 )
 
 func PreServerBootstrap(rail miso.Rail) error {
@@ -55,7 +57,7 @@ func PreServerBootstrap(rail miso.Rail) error {
 		mapper := NewMapper()
 
 		// Declare Stream
-		miso.NewEventBus(pipeline.Stream)
+		rabbit.NewEventBus(pipeline.Stream)
 
 		OnEventReceived(func(c miso.Rail, dce DataChangeEvent) error {
 			if !schemaPattern.MatchString(dce.Schema) {
@@ -86,7 +88,7 @@ func PreServerBootstrap(rail miso.Rail) error {
 						continue
 					}
 
-					if err := miso.PubEventBus(c, evt, pipeline.Stream); err != nil {
+					if err := rabbit.PubEventBus(c, evt, pipeline.Stream); err != nil {
 						return err
 					}
 				}
@@ -99,10 +101,6 @@ func PreServerBootstrap(rail miso.Rail) error {
 
 	return nil
 }
-
-var (
-	syncRunOnce sync.Once
-)
 
 func PostServerBootstrap(rail miso.Rail) error {
 

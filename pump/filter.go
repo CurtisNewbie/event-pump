@@ -1,6 +1,9 @@
 package pump
 
-import "github.com/curtisnewbie/miso/miso"
+import (
+	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
+)
 
 type Filter interface {
 	Include(rail miso.Rail, evt any) bool
@@ -47,5 +50,5 @@ func NewFilters(p Pipeline) []Filter {
 		return []Filter{noOpFilter{}}
 	}
 
-	return []Filter{columnFilter{miso.Distinct(p.Condition.ColumnChanged)}}
+	return []Filter{columnFilter{util.Distinct(p.Condition.ColumnChanged)}}
 }

@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	ms "github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"gorm.io/gorm"
@@ -419,13 +421,13 @@ func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 		Logger:               rail,
 	}
 
-	p := miso.MySQLConnParam{
+	p := ms.MySQLConnParam{
 		User:     miso.GetPropStr(PropSyncUser),
 		Password: miso.GetPropStr(PropSyncPassword),
 		Host:     miso.GetPropStr(PropSyncHost),
 		Port:     miso.GetPropInt(PropSyncPort),
 	}
-	client, err := miso.NewMySQLConn(rail, p)
+	client, err := ms.NewMySQLConn(rail, p)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +480,7 @@ func AttachPos(rail miso.Rail) error {
 func attachLocalPosFile(rail miso.Rail) error {
 	pf := miso.GetPropStr(PropSyncPosFile)
 	rail.Infof("Attaching to pos file: %v", pf)
-	f, err := miso.OpenFile(pf, os.O_CREATE|os.O_RDWR)
+	f, err := util.ReadWriteFile(pf)
 	if err != nil {
 		return fmt.Errorf("failed to attach to pos file: %v, %w", pf, err)
 	}
@@ -544,7 +546,7 @@ func ReadPos(rail miso.Rail) (mysql.Position, error) {
 	if err != nil || byt == nil {
 		return mysql.Position{}, err
 	}
-	s := miso.UnsafeByt2Str(byt)
+	s := util.UnsafeByt2Str(byt)
 	if s == "" {
 		return mysql.Position{}, nil
 	}
@@ -565,7 +567,7 @@ func attachZkPosFile(rail miso.Rail) error {
 		// node doesn't exist
 		pf := miso.GetPropStr(PropSyncPosFile)
 		if pf != "" {
-			if f, err := miso.ReadFileAll(pf); err == nil {
+			if f, err := util.ReadFileAll(pf); err == nil {
 				if er := ZkWritePos(f); er != nil {
 					rail.Warnf("Unable to find pos node on Zookeeper. Attempted to fallback to local pos file but failed, %v", er)
 				}
