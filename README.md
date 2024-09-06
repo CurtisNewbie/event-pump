@@ -148,7 +148,7 @@ ha:
       - "127.0.0.1"
 ```
 
-All event-pump instances attempt to create Ephemeral Node `/eventpump/leader` on startup. Only one instance can succeed, and the one that created the node is elected to be leader. Other nodes will standby and subscribe to changes to the node. If leader node is somehow down, standby instances will be notices and attempt the leader election again.
+All event-pump instances attempt to create Ephemeral Node `/eventpump/leader` on startup. Only one instance can succeed, and the one that created the node is elected to be leader. Other nodes will standby and subscribe to changes to the node. If leader node is somehow down, standby instances will be noticed and attempt the leader election again.
 
 If the HA mode is enabled, binlog position is nolonger stored in a local file. Instead, the binlog position is set to Persistent Node `/eventpump/pos` using the same json format. When leader node bootstraps, and it notices that the node `/eventpump/pos` doesn't exist, it will attempt to read local binlog pos file, and save the value to ZooKeeper.
 
