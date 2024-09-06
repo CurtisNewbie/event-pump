@@ -45,7 +45,7 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 | ha.enabled                            | Enable HA Mode                                                                                                                                   | false         |
 | ha.zookeeper.[]host                   | ZooKeeper Hosts                                                                                                                                  |               |
 
-## Configuration Example
+### Configuration Example
 
 ```yaml
 filter:
@@ -103,7 +103,7 @@ E.g.,
 }
 ```
 
-# Update
+## Update
 
 - Since v0.0.5, (**standalone**) event-pump no longer depends on redis, binlog position is now recorded in a local file, using following format (previously, it's recorded on redis):
 
@@ -122,7 +122,7 @@ E.g.,
 
 - Since v0.0.10, event-pump introduces HA mode. In HA Mode, multiple event-pump instances undertake leader election using ZooKeeper; only the leader node is responsible for binlog fetching and parsing, and the remaining nodes are backup. Since there are more than one node running, the binlog position is stored in ZooKeeper as well (see `High-Availability Mode` section).
 
-# Maintenance
+## Maintenance
 
 To recover from earliest binlog position:
 
@@ -140,7 +140,7 @@ show binlog events limit 1;
 
 Then update the binlog name and position back to the `binlog_pos` file, and then restart event-pump.
 
-# High-Availability Mode
+## High-Availability Mode
 
 event-pump also supports HA using ZooKeeper. Enable HA mode as follows:
 
@@ -165,3 +165,7 @@ E.g., Using `zkCli`:
 [zk: localhost:2181(CONNECTED) 22] get /eventpump/pos
 # {"Name":"mysql-bin.000004","Pos":2842305}
 ```
+
+## More Documentation
+
+- [API Endpoints](./doc/api.md)
