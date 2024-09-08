@@ -3,10 +3,12 @@ package pump
 import (
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/curtisnewbie/miso/encoding"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
@@ -32,6 +34,16 @@ var (
 var (
 	pipelineMap = map[string][]Pipeline{}
 	pipMu       sync.Mutex
+)
+
+var (
+	// save pipline config to local file every 30s
+	pipelineConfigSyncTick = miso.NewTickRuner(30*time.Second, func() {
+		pipelineConfigSyncMu.Lock()
+		defer pipelineConfigSyncMu.Unlock()
+		saveLocalConfigs()
+	})
+	pipelineConfigSyncMu sync.Mutex
 )
 
 func init() {
@@ -96,17 +108,23 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 	return pl
 }
 
-func saveLocalConfigs(rail miso.Rail, pl []Pipeline) {
+func saveLocalConfigs() {
 	fn := miso.GetPropStr(PropPipelineConfigFile)
 	if fn == "" {
 		return
 	}
 
+	// temp file, the configs are first written and flushed to temp file
+	// then the temp file is renamed to target file
+	wbuf := fn + "_buffer"
+
+	pl := copyPipelines()
+	rail := miso.EmptyRail()
 	pl = util.CopyFilter(pl, func(p Pipeline) bool { return p.Persist })
 
-	f, err := util.ReadWriteFile(fn)
+	f, err := util.ReadWriteFile(wbuf)
 	if err != nil {
-		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+		rail.Errorf("Failed to save local config file, '%v', %v", wbuf, err)
 		return
 	}
 	defer f.Close()
@@ -115,14 +133,22 @@ func saveLocalConfigs(rail miso.Rail, pl []Pipeline) {
 
 	s, err := encoding.SWriteJson(pl)
 	if err != nil {
-		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+		rail.Errorf("Failed to save local config file, '%v', %v", wbuf, err)
 		return
 	}
 
 	_, err = f.WriteString(s)
 	if err != nil {
+		rail.Errorf("Failed to save local config file, '%v', %v", wbuf, err)
+		return
+	}
+	if err := f.Sync(); err != nil {
+		rail.Errorf("Failed to sync to local config file, '%v', %v", wbuf, err)
+		return
+	}
 
-		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+	if err := os.Rename(wbuf, fn); err != nil {
+		rail.Errorf("Failed to overwrite local config file, '%v', %v", fn, err)
 		return
 	}
 
@@ -331,6 +357,10 @@ func PostServerBootstrap(rail miso.Rail) error {
 	haMode := isHaMode()
 	SetupPosFileStorage(haMode)
 
+	if !haMode {
+		pipelineConfigSyncTick.Start()
+	}
+
 	startSync := func() {
 		if err := AttachPos(rail); err != nil {
 			panic(fmt.Errorf("failed to attach pos file, %v", err))
@@ -355,7 +385,9 @@ func PostServerBootstrap(rail miso.Rail) error {
 		// make sure the goroutine exit before the server stops
 		nrail, cancel := rail.NextSpan().WithCancel()
 		miso.AddShutdownHook(func() {
-			saveLocalConfigs(miso.EmptyRail(), copyPipelines())
+			if !haMode {
+				saveLocalConfigs()
+			}
 			cancel()
 			pumpEventWg.Wait()
 		})
