@@ -152,7 +152,7 @@ func saveLocalConfigs() {
 		return
 	}
 
-	rail.Infof("Pipelines saved to local file: %v", fn)
+	rail.Debugf("Persistent pipelines saved to local file: %v", fn)
 }
 
 func samePipeline(a Pipeline, b Pipeline) bool {
