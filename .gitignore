@@ -21,3 +21,4 @@
 go.work
 binlog_pos
 logs/
+pipelines.json

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/curtisnewbie/event-pump/pump"
+	"github.com/curtisnewbie/event-pump/internal/pump"
 )
 
 func main() {

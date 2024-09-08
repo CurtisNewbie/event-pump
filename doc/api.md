@@ -3,12 +3,11 @@
 - POST /api/v1/create-pipeline
   - Description: Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
   - JSON Request:
-    - "schema": (string)
-    - "table": (string)
-    - "type": (string)
-    - "stream": (string)
-    - "enabled": (bool)
-    - "condition": (Condition)
+    - "schema": (string) schema name
+    - "table": (string) table name
+    - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
+    - "stream": (string) event bus name
+    - "condition": (Condition) extra filtering conditions
       - "columnChanged": ([]string)
   - JSON Response:
     - "errorCode": (string) error code
@@ -18,17 +17,16 @@
     ```sh
     curl -X POST 'http://localhost:8088/api/v1/create-pipeline' \
       -H 'Content-Type: application/json' \
-      -d '{"type":"","stream":"","enabled":false,"condition":{"columnChanged":[]},"schema":"","table":""}'
+      -d '{"schema":"","table":"","eventTypes":[],"stream":"","condition":{"columnChanged":[]}}'
     ```
 
   - JSON Request Object In TypeScript:
     ```ts
-    export interface Pipeline {
-      schema?: string
-      table?: string
-      type?: string
-      stream?: string
-      enabled?: boolean
+    export interface ApiPipeline {
+      schema?: string                // schema name
+      table?: string                 // table name
+      eventTypes?: string[]          // event types; INS - Insert, UPD - Update, DEL - Delete
+      stream?: string                // event bus name
       condition?: Condition
     }
     export interface Condition {
@@ -55,7 +53,7 @@
       private http: HttpClient
     ) {}
 
-    let req: Pipeline | null = null;
+    let req: ApiPipeline | null = null;
     this.http.post<any>(`/event-pump/api/v1/create-pipeline`, req)
       .subscribe({
         next: (resp) => {
@@ -74,12 +72,11 @@
 - POST /api/v1/remove-pipeline
   - Description: Remove existing pipeline. HA is not supported.
   - JSON Request:
-    - "schema": (string)
-    - "table": (string)
-    - "type": (string)
-    - "stream": (string)
-    - "enabled": (bool)
-    - "condition": (Condition)
+    - "schema": (string) schema name
+    - "table": (string) table name
+    - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
+    - "stream": (string) event bus name
+    - "condition": (Condition) extra filtering conditions
       - "columnChanged": ([]string)
   - JSON Response:
     - "errorCode": (string) error code
@@ -89,17 +86,16 @@
     ```sh
     curl -X POST 'http://localhost:8088/api/v1/remove-pipeline' \
       -H 'Content-Type: application/json' \
-      -d '{"schema":"","table":"","type":"","stream":"","enabled":false,"condition":{"columnChanged":[]}}'
+      -d '{"stream":"","condition":{"columnChanged":[]},"schema":"","table":"","eventTypes":[]}'
     ```
 
   - JSON Request Object In TypeScript:
     ```ts
-    export interface Pipeline {
-      schema?: string
-      table?: string
-      type?: string
-      stream?: string
-      enabled?: boolean
+    export interface ApiPipeline {
+      schema?: string                // schema name
+      table?: string                 // table name
+      eventTypes?: string[]          // event types; INS - Insert, UPD - Update, DEL - Delete
+      stream?: string                // event bus name
       condition?: Condition
     }
     export interface Condition {
@@ -126,7 +122,7 @@
       private http: HttpClient
     ) {}
 
-    let req: Pipeline | null = null;
+    let req: ApiPipeline | null = null;
     this.http.post<any>(`/event-pump/api/v1/remove-pipeline`, req)
       .subscribe({
         next: (resp) => {

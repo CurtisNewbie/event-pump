@@ -24,26 +24,26 @@ MySQL must enable binlog replication (it's enabled by default on MySQL 8.x).
 
 For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 
-| Property                              | Description                                                                                                                                      | Default Value |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| sync.server-id                        | server-id used to mimic a replication server                                                                                                     | 100           |
-| sync.user                             | username of the master MySQL instance                                                                                                            | root          |
-| sync.password                         | password of the master MySQL instance                                                                                                            |               |
-| sync.host                             | host of the master MySQL instance                                                                                                                | 127.0.0.1     |
-| sync.port                             | port of the master MySQL instance                                                                                                                | 3306          |
-| sync.pos.file                         | binlog position file **(be careful if you are upgrading event-pump)**                                                                            | binlog_pos    |
-| sync.max-reconnect                    | max reconnect attempts (reconnect every second, 0 means infinite retry)                                                                          | 120           |
-| filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                       |               |
-| filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter |               |
-| []pipeline                            | list of pipeline config                                                                                                                          |               |
-| []pipeline.schema                     | regexp for matching schema name                                                                                                                  |               |
-| []pipeline.table                      | regexp for matching table name                                                                                                                   |               |
-| []pipeline.type                       | regexp for matching event type (optional)                                                                                                        |               |
-| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`)             |               |
-| []pipeline.enabled                    | whether it's enabled                                                                                                                             |               |
-| []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                      |               |
-| ha.enabled                            | Enable HA Mode                                                                                                                                   | false         |
-| ha.zookeeper.[]host                   | ZooKeeper Hosts                                                                                                                                  |               |
+| Property                              | Description                                                                                                                                      | Default Value  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| sync.server-id                        | server-id used to mimic a replication server                                                                                                     | 100            |
+| sync.user                             | username of the master MySQL instance                                                                                                            | root           |
+| sync.password                         | password of the master MySQL instance                                                                                                            |                |
+| sync.host                             | host of the master MySQL instance                                                                                                                | 127.0.0.1      |
+| sync.port                             | port of the master MySQL instance                                                                                                                | 3306           |
+| sync.pos.file                         | binlog position file **(be careful if you are upgrading event-pump)**                                                                            | binlog_pos     |
+| sync.max-reconnect                    | max reconnect attempts (reconnect every second, 0 means infinite retry)                                                                          | 120            |
+| filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                       |                |
+| filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter |                |
+| local.pipelines.file                  | locally cached pipeline configurations                                                                                                           | pipelines.json |
+| []pipeline.schema                     | regexp for matching schema name                                                                                                                  |                |
+| []pipeline.table                      | regexp for matching table name                                                                                                                   |                |
+| []pipeline.type                       | regexp for matching event type (optional)                                                                                                        |                |
+| []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`)             |                |
+| []pipeline.enabled                    | whether it's enabled                                                                                                                             |                |
+| []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                      |                |
+| ha.enabled                            | Enable HA Mode                                                                                                                                   | false          |
+| ha.zookeeper.[]host                   | ZooKeeper Hosts                                                                                                                                  |                |
 
 ### Configuration Example
 

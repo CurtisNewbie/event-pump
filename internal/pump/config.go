@@ -1,0 +1,66 @@
+package pump
+
+import "github.com/curtisnewbie/miso/miso"
+
+type Condition struct {
+	// name of columns that change in an binlog event.
+	ColumnChanged []string `mapstructure:"column-changed"`
+}
+
+type Pipeline struct {
+	// event handler id.
+	HandlerId string `json:"-"`
+
+	// schema name.
+	Schema string
+
+	// table name.
+	Table string
+
+	// event bus name.
+	Stream string
+
+	// event type regexp.
+	Type string
+
+	// Whether pipeline is enabled.
+	//
+	// pipeline created using API is always enabled.
+	Enabled bool `json:"-"`
+
+	// whether pipeline should be persisted locally in non-HA mode.
+	//
+	// pipeline created using API is always persisted.
+	Persist bool `json:"-"`
+
+	// extra filtering conditions
+	Condition Condition `mapstructure:"condition"`
+}
+
+type GlobalFilter struct {
+	Include string
+	Exclude string
+}
+
+type EventMapping struct {
+	From string
+	To   string
+	Type string
+}
+
+type EventPumpConfig struct {
+	Filter    GlobalFilter `mapstructure:"filter"`
+	Pipelines []Pipeline   `mapstructure:"pipeline"`
+}
+
+func LoadConfig() EventPumpConfig {
+	var conf EventPumpConfig
+	miso.UnmarshalFromProp(&conf)
+
+	// only those that are created through API are persisted
+	for i, p := range conf.Pipelines {
+		p.Persist = false
+		conf.Pipelines[i] = p
+	}
+	return conf
+}

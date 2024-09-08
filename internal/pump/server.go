@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/curtisnewbie/miso/encoding"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	PropHAEnabled = "ha.enabled"
+	PropHAEnabled          = "ha.enabled"
+	PropPipelineConfigFile = "local.pipelines.file"
 )
 
 var (
@@ -29,11 +31,14 @@ var (
 
 var (
 	pipelineMap = map[string][]Pipeline{}
-	pmu         sync.Mutex
+	pipMu       sync.Mutex
 )
 
-func PreServerBootstrap(rail miso.Rail) error {
+func init() {
+	miso.SetDefProp(PropPipelineConfigFile, "pipelines.json")
+}
 
+func PreServerBootstrap(rail miso.Rail) error {
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
 
@@ -45,6 +50,12 @@ func PreServerBootstrap(rail miso.Rail) error {
 		SetGlobalExclude(regexp.MustCompile(config.Filter.Exclude))
 	}
 
+	// HA mode doesn't support API to create or delete pipelines,
+	// local configs are created for pipelines created using API.
+	if !isHaMode() {
+		config.Pipelines = append(config.Pipelines, loadLocalConfigs(rail)...)
+	}
+
 	for _, p := range config.Pipelines {
 		if err := AddPipeline(rail, p); err != nil {
 			return err
@@ -52,6 +63,70 @@ func PreServerBootstrap(rail miso.Rail) error {
 	}
 
 	return nil
+}
+
+func isHaMode() bool {
+	return miso.GetPropBool(PropHAEnabled)
+}
+
+func loadLocalConfigs(rail miso.Rail) []Pipeline {
+	fn := miso.GetPropStr(PropPipelineConfigFile)
+	if fn == "" {
+		return []Pipeline{}
+	}
+	pl := []Pipeline{}
+	c, err := util.ReadFileAll(fn)
+	if err != nil {
+		rail.Infof("Read local config file failed, %v", err)
+		return pl
+	}
+
+	err = encoding.ParseJson(c, &pl)
+	if err != nil {
+		rail.Infof("Parse local Pipeline failed, %v", err)
+		return pl
+	}
+
+	rail.Infof("Loaded local Pipeline configs, %#v", pl)
+	for i, p := range pl {
+		p.Persist = true
+		p.Enabled = true
+		pl[i] = p
+	}
+	return pl
+}
+
+func saveLocalConfigs(rail miso.Rail, pl []Pipeline) {
+	fn := miso.GetPropStr(PropPipelineConfigFile)
+	if fn == "" {
+		return
+	}
+
+	pl = util.CopyFilter(pl, func(p Pipeline) bool { return p.Persist })
+
+	f, err := util.ReadWriteFile(fn)
+	if err != nil {
+		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+		return
+	}
+	defer f.Close()
+
+	_ = f.Truncate(0)
+
+	s, err := encoding.SWriteJson(pl)
+	if err != nil {
+		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+		return
+	}
+
+	_, err = f.WriteString(s)
+	if err != nil {
+
+		rail.Errorf("Failed to save local config file, '%v', %v", fn, err)
+		return
+	}
+
+	rail.Infof("Pipelines saved to local file: %v", fn)
 }
 
 func samePipeline(a Pipeline, b Pipeline) bool {
@@ -77,28 +152,69 @@ func sameCondition(a Condition, b Condition) bool {
 	return true
 }
 
+type ApiPipeline struct {
+	Schema     string    `desc:"schema name"`
+	Table      string    `desc:"table name"`
+	EventTypes []string  `desc:"event types; INS - Insert, UPD - Update, DEL - Delete"`
+	Stream     string    `desc:"event bus name"`
+	Condition  Condition `desc:"extra filtering conditions"`
+}
+
+func (p ApiPipeline) Pipeline() Pipeline {
+	pl := Pipeline{}
+	pl.Schema = p.Schema
+	pl.Table = p.Table
+	pl.Type = pipelineTypeRegex(p.EventTypes)
+	pl.Stream = p.Stream
+	pl.Condition = p.Condition
+	pl.Enabled = true
+	pl.Persist = true
+	return pl
+}
+
+func pipelineTypeRegex(typs []string) string {
+	if len(typs) < 1 {
+		return ""
+	}
+	typs = util.Distinct(typs)
+	return "^(" + strings.Join(typs, "|") + ")$"
+}
+
 // misoapi-http: POST /api/v1/create-pipeline
 // misoapi-desc: Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
-func ApiCreatePipeline(rail miso.Rail, pipeline Pipeline) error {
-	if miso.GetPropBool(PropHAEnabled) {
+func ApiCreatePipeline(rail miso.Rail, pipeline ApiPipeline) error {
+	p := pipeline.Pipeline()
+	if isHaMode() {
 		return miso.NewErrf("Not supported for HA mode")
 	}
-	return AddPipeline(rail, pipeline)
+	return AddPipeline(rail, p)
 }
 
 // misoapi-http: POST /api/v1/remove-pipeline
 // misoapi-desc: Remove existing pipeline. HA is not supported.
-func ApiRemovePipeline(rail miso.Rail, pipeline Pipeline) error {
-	if miso.GetPropBool(PropHAEnabled) {
+func ApiRemovePipeline(rail miso.Rail, pipeline ApiPipeline) error {
+	p := pipeline.Pipeline()
+	if isHaMode() {
 		return miso.NewErrf("Not supported for HA mode")
 	}
-	RemovePipeline(rail, pipeline)
+	RemovePipeline(rail, p)
 	return nil
 }
 
+func copyPipelines() []Pipeline {
+	pipMu.Lock()
+	defer pipMu.Unlock()
+
+	cp := make([]Pipeline, 0, len(pipelineMap))
+	for _, v := range pipelineMap {
+		cp = append(cp, v...)
+	}
+	return cp
+}
+
 func RemovePipeline(rail miso.Rail, pipeline Pipeline) {
-	pmu.Lock()
-	defer pmu.Unlock()
+	pipMu.Lock()
+	defer pipMu.Unlock()
 
 	pk := pipeline.Schema + "." + pipeline.Table
 	if prev, ok := pipelineMap[pk]; ok {
@@ -111,6 +227,7 @@ func RemovePipeline(rail miso.Rail, pipeline Pipeline) {
 			}
 		}
 	}
+	rail.Infof("Pipeline not found, nothing to remove: %#v", pipeline)
 }
 
 func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
@@ -128,8 +245,8 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 		pipeline.Condition.ColumnChanged[i] = strings.TrimSpace(c)
 	}
 
-	pmu.Lock()
-	defer pmu.Unlock()
+	pipMu.Lock()
+	defer pipMu.Unlock()
 
 	pk := pipeline.Schema + "." + pipeline.Table
 	if prev, ok := pipelineMap[pk]; ok {
@@ -204,15 +321,15 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 	pipeline.HandlerId = handlerId
 	pipelineMap[pk] = append(pipelineMap[pk], pipeline)
 
-	rail.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
-		pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
+	rail.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, persist: %v, conditions: %+v",
+		pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Persist, pipeline.Condition)
 	return nil
 }
 
 func PostServerBootstrap(rail miso.Rail) error {
 
-	haEnabled := miso.GetPropBool(PropHAEnabled)
-	SetupPosFileStorage(haEnabled)
+	haMode := isHaMode()
+	SetupPosFileStorage(haMode)
 
 	startSync := func() {
 		if err := AttachPos(rail); err != nil {
@@ -238,6 +355,7 @@ func PostServerBootstrap(rail miso.Rail) error {
 		// make sure the goroutine exit before the server stops
 		nrail, cancel := rail.NextSpan().WithCancel()
 		miso.AddShutdownHook(func() {
+			saveLocalConfigs(miso.EmptyRail(), copyPipelines())
 			cancel()
 			pumpEventWg.Wait()
 		})
@@ -258,7 +376,7 @@ func PostServerBootstrap(rail miso.Rail) error {
 		}(nrail, streamer)
 	}
 
-	if haEnabled {
+	if haMode {
 		return ZkElectLeader(rail, func() {
 			syncRunOnce.Do(startSync)
 		})
