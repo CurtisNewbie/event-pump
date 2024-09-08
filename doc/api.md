@@ -8,7 +8,7 @@
     - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
     - "stream": (string) event bus name
     - "condition": (Condition) extra filtering conditions
-      - "columnChanged": ([]string)
+      - "columnChanged": ([]string) 
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
@@ -77,7 +77,7 @@
     - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
     - "stream": (string) event bus name
     - "condition": (Condition) extra filtering conditions
-      - "columnChanged": ([]string)
+      - "columnChanged": ([]string) 
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
@@ -86,7 +86,7 @@
     ```sh
     curl -X POST 'http://localhost:8088/api/v1/remove-pipeline' \
       -H 'Content-Type: application/json' \
-      -d '{"stream":"","condition":{"columnChanged":[]},"schema":"","table":"","eventTypes":[]}'
+      -d '{"condition":{"columnChanged":[]},"schema":"","table":"","eventTypes":[],"stream":""}'
     ```
 
   - JSON Request Object In TypeScript:
