@@ -17,7 +17,7 @@
     ```sh
     curl -X POST 'http://localhost:8088/api/v1/create-pipeline' \
       -H 'Content-Type: application/json' \
-      -d '{"schema":"","table":"","eventTypes":[],"stream":"","condition":{"columnChanged":[]}}'
+      -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
     ```
 
   - JSON Request Object In TypeScript:
@@ -86,7 +86,7 @@
     ```sh
     curl -X POST 'http://localhost:8088/api/v1/remove-pipeline' \
       -H 'Content-Type: application/json' \
-      -d '{"condition":{"columnChanged":[]},"schema":"","table":"","eventTypes":[],"stream":""}'
+      -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
     ```
 
   - JSON Request Object In TypeScript:
