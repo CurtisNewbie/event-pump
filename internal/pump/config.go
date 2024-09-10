@@ -28,11 +28,6 @@ type Pipeline struct {
 	// pipeline created using API is always enabled.
 	Enabled bool `json:"-"`
 
-	// whether pipeline should be persisted locally in non-HA mode.
-	//
-	// pipeline created using API is always persisted.
-	Persist bool `json:"-"`
-
 	// extra filtering conditions
 	Condition Condition `mapstructure:"condition"`
 }
@@ -56,11 +51,5 @@ type EventPumpConfig struct {
 func LoadConfig() EventPumpConfig {
 	var conf EventPumpConfig
 	miso.UnmarshalFromProp(&conf)
-
-	// only those that are created through API are persisted
-	for i, p := range conf.Pipelines {
-		p.Persist = false
-		conf.Pipelines[i] = p
-	}
 	return conf
 }

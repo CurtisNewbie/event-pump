@@ -38,12 +38,8 @@ var (
 
 var (
 	// save pipline config to local file every 30s
-	pipelineConfigSyncTick = miso.NewTickRuner(30*time.Second, func() {
-		pipelineConfigSyncMu.Lock()
-		defer pipelineConfigSyncMu.Unlock()
-		saveLocalConfigs()
-	})
-	pipelineConfigSyncMu sync.Mutex
+	pipelineConfigSyncTick = miso.NewTickRuner(30*time.Second, saveLocalConfigs)
+	saveLocalConfigMutex   sync.Mutex
 )
 
 func init() {
@@ -101,7 +97,6 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 
 	rail.Infof("Loaded local Pipeline configs, %#v", pl)
 	for i, p := range pl {
-		p.Persist = true
 		p.Enabled = true
 		pl[i] = p
 	}
@@ -109,6 +104,9 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 }
 
 func saveLocalConfigs() {
+	saveLocalConfigMutex.Lock()
+	defer saveLocalConfigMutex.Unlock()
+
 	fn := miso.GetPropStr(PropPipelineConfigFile)
 	if fn == "" {
 		return
@@ -120,7 +118,6 @@ func saveLocalConfigs() {
 
 	pl := copyPipelines()
 	rail := miso.EmptyRail()
-	pl = util.CopyFilter(pl, func(p Pipeline) bool { return p.Persist })
 
 	f, err := util.ReadWriteFile(wbuf)
 	if err != nil {
@@ -194,7 +191,6 @@ func (p ApiPipeline) Pipeline() Pipeline {
 	pl.Stream = p.Stream
 	pl.Condition = p.Condition
 	pl.Enabled = true
-	pl.Persist = true
 	return pl
 }
 
@@ -225,6 +221,15 @@ func ApiRemovePipeline(rail miso.Rail, pipeline ApiPipeline) error {
 	}
 	RemovePipeline(rail, p)
 	return nil
+}
+
+// misoapi-http: GET /api/v1/list-pipeline
+// misoapi-desc: List existing pipeline. HA is not supported.
+func ApiListPipelines(rail miso.Rail) ([]Pipeline, error) {
+	if isHaMode() {
+		return nil, miso.NewErrf("Not supported for HA mode")
+	}
+	return copyPipelines(), nil
 }
 
 func copyPipelines() []Pipeline {
@@ -347,8 +352,8 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 	pipeline.HandlerId = handlerId
 	pipelineMap[pk] = append(pipelineMap[pk], pipeline)
 
-	rail.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, persist: %v, conditions: %+v",
-		pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Persist, pipeline.Condition)
+	rail.Infof("Subscribed binlog events, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
+		pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
 	return nil
 }
 

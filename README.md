@@ -172,7 +172,7 @@ E.g., Using `zkCli`:
 
 ## Creating / Removing Pipelines Through API
 
-event-pump now provdes API endpoints to create or remove pipelines in non-HA mode. The pipelines created using API are by default persisted locally in file named `pipelines.json` (see configuration for `'local.pipelines.file'`).
+event-pump now provdes API endpoints to create or remove pipelines in non-HA mode. The pipelines created are by default saved locally in file named `pipelines.json` (see configuration for `'local.pipelines.file'`).
 
 It's recommended to manage the pipelines through configuration file, but the API should give you enough space to manipulate the piplines without restarting the server.
 

@@ -138,6 +138,70 @@
       });
     ```
 
+- GET /api/v1/list-pipeline
+  - Description: List existing pipeline. HA is not supported.
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": ([]pump.Pipeline) response data
+      - "schema": (string) 
+      - "table": (string) 
+      - "stream": (string) 
+      - "type": (string) 
+      - "condition": (Condition) 
+        - "columnChanged": ([]string) 
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8088/api/v1/list-pipeline'
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: Pipeline[]
+    }
+    export interface Pipeline {
+      schema?: string
+      table?: string
+      stream?: string
+      type?: string
+      condition?: Condition
+    }
+    export interface Condition {
+      columnChanged?: string[]
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
+    this.http.get<any>(`/event-pump/api/v1/list-pipeline`)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: Pipeline[] = resp.data;
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+    ```
+
 - GET /metrics
   - Description: Collect prometheus metrics information
   - Header Parameter:

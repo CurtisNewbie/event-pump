@@ -40,27 +40,27 @@ filter:
   include: ''
   exclude: ''
 
-pipeline:
-  - schema: 'vfm'
-    table: 'file_info'
-    type: '^(INS)$'
-    stream: 'event.bus.vfm.file.saved'
-    enabled: true
+# pipeline:
+#   - schema: 'vfm'
+#     table: 'file_info'
+#     type: '^(INS)$'
+#     stream: 'event.bus.vfm.file.saved'
+#     enabled: true
 
-  - schema: 'vfm'
-    table: 'file_info'
-    type: '^(UPD)$'
-    stream: 'event.bus.vfm.file.thumbnail.updated'
-    enabled: true
-    condition:
-      column-changed:
-        - "thumbnail"
+#   - schema: 'vfm'
+#     table: 'file_info'
+#     type: '^(UPD)$'
+#     stream: 'event.bus.vfm.file.thumbnail.updated'
+#     enabled: true
+#     condition:
+#       column-changed:
+#         - "thumbnail"
 
-  - schema: 'vfm'
-    table: 'file_info'
-    type: '^(UPD)$'
-    stream: 'event.bus.vfm.file.logic.deleted'
-    enabled: true
-    condition:
-      column-changed:
-        - "is_logic_deleted"
+#   - schema: 'vfm'
+#     table: 'file_info'
+#     type: '^(UPD)$'
+#     stream: 'event.bus.vfm.file.logic.deleted'
+#     enabled: true
+#     condition:
+#       column-changed:
+#         - "is_logic_deleted"
