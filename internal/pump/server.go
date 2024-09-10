@@ -58,11 +58,7 @@ func PreServerBootstrap(rail miso.Rail) error {
 		SetGlobalExclude(regexp.MustCompile(config.Filter.Exclude))
 	}
 
-	// HA mode doesn't support API to create or delete pipelines,
-	// local configs are created for pipelines created using API.
-	if !isHaMode() {
-		config.Pipelines = append(config.Pipelines, loadLocalConfigs(rail)...)
-	}
+	config.Pipelines = append(config.Pipelines, loadLocalConfigs(rail)...)
 
 	for _, p := range config.Pipelines {
 		if err := AddPipeline(rail, p); err != nil {
