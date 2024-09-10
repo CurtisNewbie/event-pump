@@ -3,11 +3,11 @@ package pump
 import "fmt"
 
 type StreamEvent struct {
-	Timestamp uint32                       `json:"timestamp"` // epoc time second
-	Schema    string                       `json:"schema"`
-	Table     string                       `json:"table"`
-	Type      string                       `json:"type"`    // INS-INSERT, UPD-UPDATE, DEL-DELETE
-	Columns   map[string]StreamEventColumn `json:"columns"` // key is the column name
+	Timestamp uint32                       `json:"timestamp"` // Epoch time second
+	Schema    string                       `json:"schema"`    // Schema name
+	Table     string                       `json:"table"`     // Table name
+	Type      string                       `json:"type"`      // Event Type: INS-INSERT, UPD-UPDATE, DEL-DELETE
+	Columns   map[string]StreamEventColumn `json:"columns"`   // Map of column name and value changes
 }
 
 type StreamEventColumn struct {
