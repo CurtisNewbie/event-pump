@@ -601,7 +601,7 @@ func attachZkPosFile(rail miso.Rail) error {
 }
 
 func detachZkPosFile(rail miso.Rail) {
-	// do nothing as indended
+	// do nothing
 }
 
 func flushZkPosFile(byt []byte) error {
