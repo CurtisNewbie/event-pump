@@ -70,8 +70,8 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/curtisnewbie/miso v0.1.7-beta.1 h1:yk5cTpQ7HJPDh3Fjh9kIJh6aioh5sFmkeZPjcW72x8I=
-github.com/curtisnewbie/miso v0.1.7-beta.1/go.mod h1:IOsfbxaN6hvw2tC/RLMlI6srWI+mlsA/BgA9pXfDC70=
+github.com/curtisnewbie/miso v0.1.8 h1:rk1J37oWKc1OPHNfVu8Shj8JecO3fmLWErPJhtG6IYE=
+github.com/curtisnewbie/miso v0.1.8/go.mod h1:IOsfbxaN6hvw2tC/RLMlI6srWI+mlsA/BgA9pXfDC70=
 github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548/go.mod h1:e6NPNENfs9mPDVNRekM7lKScauxd5kXTr1Mfyig6TDM=
 github.com/cznic/sortutil v0.0.0-20181122101858-f5f958428db8/go.mod h1:q2w6Bg5jeox1B+QkJ6Wp/+Vn0G/bo3f1uY7Fn3vivIQ=
 github.com/cznic/strutil v0.0.0-20171016134553-529a34b1c186/go.mod h1:AHHPPPXTw0h6pVabbcbyGRK1DckRn7r/STdZEeIDzZc=
