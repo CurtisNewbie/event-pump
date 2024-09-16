@@ -11,7 +11,7 @@ import (
 // This is only useful for applications written using miso.
 //
 // Make sure to run this method before miso.PostServerBootstrapped.
-func SubscribeBinlogEventsOnBootstrap(rail miso.Rail, p client.Pipeline, concurrency int,
+func SubscribeBinlogEventsOnBootstrap(p client.Pipeline, concurrency int,
 	listener func(rail miso.Rail, t client.StreamEvent) error) {
 
 	// create pipeline immediately such that the rabbitmq client can
