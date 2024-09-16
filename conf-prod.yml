@@ -39,7 +39,7 @@ ha:
       - "127.0.0.1"
 
 filter:
-  include: 'fileserver'
+  include: ''
   exclude: ''
 
 local:
