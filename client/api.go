@@ -7,17 +7,22 @@ import (
 type EventType string
 
 const (
+	// row inserted
 	EventTypeInsert = "INS"
+
+	// row updated
 	EventTypeUpdate = "UPD"
+
+	// row deleted
 	EventTypeDelete = "DEL"
 )
 
 type Pipeline struct {
-	Schema     string
-	Table      string
-	EventTypes []EventType
-	Stream     string
-	Condition  Condition
+	Schema     string      // schema name
+	Table      string      // table name
+	EventTypes []EventType // event types subscribed
+	Stream     string      // miso event bus name
+	Condition  Condition   // extra binlog filtering condition
 }
 
 type Condition struct {
