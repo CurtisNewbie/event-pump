@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -195,6 +196,7 @@ func pipelineTypeRegex(typs []string) string {
 		return ""
 	}
 	typs = util.Distinct(typs)
+	sort.Strings(typs)
 	return "^(" + strings.Join(typs, "|") + ")$"
 }
 
