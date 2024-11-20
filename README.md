@@ -38,7 +38,8 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 | local.pipelines.file                  | locally cached pipeline configurations                                                                                                           | pipelines.json |
 | []pipeline.schema                     | regexp for matching schema name                                                                                                                  |                |
 | []pipeline.table                      | regexp for matching table name                                                                                                                   |                |
-| []pipeline.type                       | regexp for matching event type (optional)                                                                                                        |                |
+| []pipeline.type                       | regexp for matching event type (optional); deprecated, please use `types` instead.                                                               |                |
+| []pipeline.types                      | event types: INS - Insert, UPD - Update, DEL - Delete, (optional)                                                                                |                |
 | []pipeline.stream                     | event bus name (basically, the event is sent to a rabbitmq exchange identified by name `${pipeline.stream}` using routing key `'#'`)             |                |
 | []pipeline.enabled                    | whether it's enabled                                                                                                                             |                |
 | []pipeline.condition.[]column-changed | Filter events that contain changes to the specified columns                                                                                      |                |
@@ -55,7 +56,9 @@ filter:
 pipeline:
   - schema: ".*"
     table: ".*"
-    type: "(INS|UPD)"
+    types:
+      - "INS"
+      - "UPD"
     stream: "data-change.echo"
     enabled: true
 ```

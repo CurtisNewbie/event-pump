@@ -23,6 +23,9 @@ type Pipeline struct {
 	// event type regexp.
 	Type string
 
+	// event types: INS, UPD, DEL.
+	Types []string `json:"-"`
+
 	// Whether pipeline is enabled.
 	//
 	// pipeline created using API is always enabled.

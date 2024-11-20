@@ -51,6 +51,13 @@ func PreServerBootstrap(rail miso.Rail) error {
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
 
+	for i, p := range config.Pipelines {
+		if len(p.Types) > 0 {
+			p.Type = pipelineTypeRegex(p.Types)
+		}
+		config.Pipelines[i] = p
+	}
+
 	if config.Filter.Include != "" {
 		SetGlobalInclude(regexp.MustCompile(config.Filter.Include))
 	}
@@ -281,7 +288,7 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 	if prev, ok := pipelineMap[pk]; ok {
 		for _, p := range prev {
 			if samePipeline(p, pipeline) {
-				rail.Infof("Duplicate pipeline found, skipped, %#v", pipeline)
+				rail.Debugf("Duplicate pipeline found, skipped, %#v", pipeline)
 				return nil
 			}
 		}
