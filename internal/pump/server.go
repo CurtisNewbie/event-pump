@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	defaultLogHandler = func(rail miso.Rail, dce DataChangeEvent) error {
+	defaultLogHandler = func(rail miso.Rail, dce DataChangeEvent, ctx *EventHandleContext) error {
 		rail.Infof("Received event: '%v'", dce)
 		return nil
 	}
@@ -310,7 +310,7 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 	// Declare Stream
 	rabbit.NewEventBus(pipeline.Stream)
 
-	handlerId := OnEventReceived(func(c miso.Rail, dce DataChangeEvent) error {
+	handlerId := OnEventReceived(func(c miso.Rail, dce DataChangeEvent, ctx *EventHandleContext) error {
 		if !schemaPattern.MatchString(dce.Schema) {
 			c.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
 			return nil
@@ -332,6 +332,17 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 		}
 
 		c.Debugf("DCE: %s", dce)
+		isProd := miso.IsProdMode()
+
+		if ctx.StreamDispatched.Has(pipeline.Stream) {
+			// already dispatched to streaming pipeline, we should just ignore it
+			// if there are multiple pipelines with diffrent event_type/column filtering conditions pointing toward the same stream,
+			// then they are simply duplicates
+			if !isProd {
+				c.Infof("Event Pipeline Stream has already been triggered '%s', skipped", pipeline.Stream)
+			}
+			return nil
+		}
 
 		for _, evt := range events {
 			anyMatch := false
@@ -341,11 +352,13 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 					break
 				}
 			}
+
 			if anyMatch {
+				ctx.StreamDispatched.Add(pipeline.Stream)
 				if err := rabbit.PubEventBus(c, evt, pipeline.Stream); err != nil {
 					return err
 				}
-				if !miso.IsProdMode() {
+				if !isProd {
 					c.Infof("Event Pipeline triggered, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
 						pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
 				}

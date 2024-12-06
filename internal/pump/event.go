@@ -129,7 +129,7 @@ func (d DataChangeEvent) rowToStr(row []interface{}) string {
 	return "{ " + strings.Join(sl, ", ") + " }"
 }
 
-type EventHandler func(c miso.Rail, dce DataChangeEvent) error
+type EventHandler func(c miso.Rail, dce DataChangeEvent, ctx *EventHandleContext) error
 
 func HasAnyEventHandler() bool {
 	hdmu.RLock()
@@ -152,12 +152,21 @@ func OnEventReceived(handler EventHandler) string {
 func callEventHandlers(c miso.Rail, dce DataChangeEvent) error {
 	hdmu.RLock()
 	defer hdmu.RUnlock()
+
+	ctx := &EventHandleContext{
+		StreamDispatched: util.NewSet[string](),
+	}
+
 	for _, handle := range handlers {
-		if e := handle(c, dce); e != nil {
+		if e := handle(c, dce, ctx); e != nil {
 			return e
 		}
 	}
 	return nil
+}
+
+type EventHandleContext struct {
+	StreamDispatched util.Set[string]
 }
 
 func RemoveEventHandler(handlerId string) {
@@ -232,6 +241,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			c.Info("Context cancelled, exiting PumpEvents()")
 			return nil
 		default:
+			c = c.NextSpan()
 			ev, err := streamer.GetEvent(c.Context())
 			if err != nil {
 				c.Errorf("GetEvent returned error, %v", err)

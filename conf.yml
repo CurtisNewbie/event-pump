@@ -2,7 +2,7 @@ mode.production: false
 app.name: 'event-pump'
 
 server:
-  host: "0.0.0.0"
+  host: "localhost"
   port: 8088
   generate-endpoint-doc:
     file: "./doc/api.md"
