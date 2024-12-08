@@ -17,6 +17,7 @@ import (
 	"github.com/curtisnewbie/miso/util"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -575,8 +576,17 @@ func SetupPosFileStorage(isHaMode bool) {
 
 func ReadPos(rail miso.Rail) (mysql.Position, error) {
 	byt, err := doReadPosFunc(rail)
-	if err != nil || byt == nil {
+	if err != nil {
 		return mysql.Position{}, err
+	}
+	if len(byt) < 1 { // for the first time, fetch from master
+		ms, err := FetchMasterStatus(rail)
+		if err != nil {
+			rail.Warnf("Failed to fetch master status, %v", err)
+			return mysql.Position{}, err // the earliest binlog
+		}
+		rail.Infof("Binlog position missing, fetched from master node, %#v", ms)
+		return mysql.Position{Name: ms.File, Pos: cast.ToUint32(ms.Position)}, nil // the latest binlog
 	}
 	s := util.UnsafeByt2Str(byt)
 	if s == "" {
@@ -620,4 +630,14 @@ func flushZkPosFile(byt []byte) error {
 
 func readZkPosFile(rail miso.Rail) ([]byte, error) {
 	return ZkReadPos()
+}
+
+type MasterStatus struct {
+	File     string
+	Position string
+}
+
+func FetchMasterStatus(rail miso.Rail) (MasterStatus, error) {
+	var ms MasterStatus
+	return ms, conn.Raw(`SHOW MASTER STATUS`).Scan(&ms).Error
 }
