@@ -34,7 +34,7 @@ var (
 
 var (
 	pipelineMap = map[string][]Pipeline{}
-	pipMu       sync.Mutex
+	pipMu       sync.RWMutex
 )
 
 var (
@@ -103,9 +103,17 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 		return pl
 	}
 
+	typeRegex := regexp.MustCompile(`^\^\(([^\)]*)\)\$$`)
 	rail.Infof("Loaded local Pipeline configs, %#v", pl)
 	for i, p := range pl {
 		p.Enabled = true
+		if p.Type != "" {
+			sub := typeRegex.FindStringSubmatch(p.Type)
+			rail.Infof("sub: %v", sub)
+			if len(sub) > 1 {
+				p.Types = strings.Split(sub[1], "|")
+			}
+		}
 		pl[i] = p
 	}
 	return pl
@@ -124,7 +132,7 @@ func saveLocalConfigs() {
 	// then the temp file is renamed to target file
 	wbuf := fn + "_buffer"
 
-	pl := copyPipelines()
+	var pl []Pipeline = copyPipelines()
 	rail := miso.EmptyRail()
 
 	f, err := util.ReadWriteFile(wbuf)
@@ -234,20 +242,55 @@ func ApiRemovePipeline(rail miso.Rail, pipeline ApiPipeline) error {
 
 // misoapi-http: GET /api/v1/list-pipeline
 // misoapi-desc: List existing pipeline. HA is not supported.
-func ApiListPipelines(rail miso.Rail) ([]Pipeline, error) {
+func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
 	if isHaMode() {
 		return nil, miso.NewErrf("Not supported for HA mode")
 	}
-	return copyPipelines(), nil
+	p := copyApiPipelines()
+	sort.Slice(p, func(i, j int) bool {
+		pi := p[i]
+		pj := p[j]
+		if pi.Schema != pj.Schema {
+			return pi.Schema < pj.Schema
+		}
+		if pi.Table != pj.Table {
+			return pi.Table < pj.Table
+		}
+		if pi.Schema != pj.Schema {
+			return pi.Schema < pj.Schema
+		}
+		return false
+	})
+	return p, nil
 }
 
 func copyPipelines() []Pipeline {
-	pipMu.Lock()
-	defer pipMu.Unlock()
+	pipMu.RLock()
+	defer pipMu.RUnlock()
 
 	cp := make([]Pipeline, 0, len(pipelineMap))
 	for _, v := range pipelineMap {
 		cp = append(cp, v...)
+	}
+	return cp
+}
+
+func copyApiPipelines() []ApiPipeline {
+	pipMu.RLock()
+	defer pipMu.RUnlock()
+
+	cp := make([]ApiPipeline, 0, len(pipelineMap))
+	for _, v := range pipelineMap {
+		cvt := util.MapTo(v, func(p Pipeline) ApiPipeline {
+			return ApiPipeline{
+				Schema:     p.Schema,
+				Table:      p.Table,
+				EventTypes: p.Types,
+				Stream:     p.Stream,
+				Condition:  p.Condition,
+			}
+		})
+		cp = append(cp, cvt...)
 	}
 	return cp
 }

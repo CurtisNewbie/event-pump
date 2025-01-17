@@ -1,0 +1,50 @@
+<div class="container-fluid">
+  <h1 class="mt-2">Event-Pump Dashboard</h1>
+  <div class="mt-3 mb-2" style="overflow: auto;">
+    <table mat-table [dataSource]="dat" style="width: 100%;">
+      <ng-container matColumnDef="schema">
+        <th mat-header-cell *matHeaderCellDef>Schema</th>
+        <td mat-cell *matCellDef="let u">{{ u.schema }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="table">
+        <th mat-header-cell *matHeaderCellDef>Table</th>
+        <td mat-cell *matCellDef="let u">{{ u.table }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="eventTypes">
+        <th mat-header-cell *matHeaderCellDef>Event Types</th>
+        <td mat-cell *matCellDef="let u">
+          <div *ngIf="u.eventTypes">
+            {{ u.eventTypes.join(', ') }}
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="stream">
+        <th mat-header-cell *matHeaderCellDef>Stream</th>
+        <td mat-cell *matCellDef="let u">{{ u.stream }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="condition">
+        <th mat-header-cell *matHeaderCellDef>Column-Changed Condition</th>
+        <td mat-cell *matCellDef="let u">
+          <div *ngIf="u.condition && u.condition.columnChanged">
+            {{ u.condition.columnChanged.join(', ') }}
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="operation">
+        <th mat-header-cell *matHeaderCellDef>Operation</th>
+        <td mat-cell *matCellDef="let u">
+          <button mat-raised-button (click)="removePipeline(u)">Delete</button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="['schema', 'table', 'eventTypes', 'stream', 'condition', 'operation']"></tr>
+      <tr mat-row *matRowDef="let row; columns: ['schema', 'table', 'eventTypes', 'stream', 'condition', 'operation']">
+      </tr>
+    </table>
+  </div>
+</div>

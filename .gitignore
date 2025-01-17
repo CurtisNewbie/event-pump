@@ -22,3 +22,5 @@ go.work
 binlog_pos
 logs/
 pipelines.json
+
+internal/pump/static/

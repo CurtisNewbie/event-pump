@@ -144,12 +144,12 @@
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
-    - "data": ([]pump.Pipeline) response data
-      - "schema": (string) 
-      - "table": (string) 
-      - "stream": (string) 
-      - "type": (string) 
-      - "condition": (Condition) 
+    - "data": ([]pump.ApiPipeline) response data
+      - "schema": (string) schema name
+      - "table": (string) table name
+      - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
+      - "stream": (string) event bus name
+      - "condition": (Condition) extra filtering conditions
         - "columnChanged": ([]string) 
   - cURL:
     ```sh
@@ -162,13 +162,13 @@
       errorCode?: string             // error code
       msg?: string                   // message
       error?: boolean                // whether the request was successful
-      data?: Pipeline[]
+      data?: ApiPipeline[]
     }
-    export interface Pipeline {
-      schema?: string
-      table?: string
-      stream?: string
-      type?: string
+    export interface ApiPipeline {
+      schema?: string                // schema name
+      table?: string                 // table name
+      eventTypes?: string[]          // event types; INS - Insert, UPD - Update, DEL - Delete
+      stream?: string                // event bus name
       condition?: Condition
     }
     export interface Condition {
@@ -193,7 +193,7 @@
             this.snackBar.open(resp.msg, "ok", { duration: 6000 })
             return;
           }
-          let dat: Pipeline[] = resp.data;
+          let dat: ApiPipeline[] = resp.data;
         },
         error: (err) => {
           console.log(err)
