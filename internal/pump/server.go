@@ -74,6 +74,10 @@ func PreServerBootstrap(rail miso.Rail) error {
 		}
 	}
 
+	if err := PrepareStatic(rail); err != nil {
+		return err
+	}
+
 	return nil
 }
 
