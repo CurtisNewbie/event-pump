@@ -1,4 +1,4 @@
-import { AfterContentInit, AfterViewInit, Component } from '@angular/core';
+import { AfterViewInit, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { HttpClientModule } from '@angular/common/http';
+import { ConfirmDialog } from './common/dialog';
 
 export interface ApiPipeline {
   schema?: string; // schema name
@@ -37,7 +38,11 @@ export class AppComponent implements AfterViewInit {
   title = 'dashboard';
   dat: ApiPipeline[] = [];
 
-  constructor(private snackBar: MatSnackBar, private http: HttpClient) {}
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient,
+    private confirmDialog: ConfirmDialog
+  ) {}
 
   ngAfterViewInit(): void {
     this.listPipelines();
@@ -65,23 +70,32 @@ export class AppComponent implements AfterViewInit {
     });
   }
 
-  // TODO: need a confirm dialog
   removePipeline(req: ApiPipeline) {
-    this.http.post<any>(`/api/v1/remove-pipeline`, req).subscribe({
-      next: (resp) => {
-        if (resp.error) {
-          this.snackBar.open(resp.msg, 'ok', { duration: 6000 });
-          return;
-        }
-        this.listPipelines();
-      },
-      error: (err) => {
-        console.log(err);
-        this.snackBar.open('Request failed, unknown error', 'ok', {
-          duration: 3000,
+    this.confirmDialog.show(
+      `Remove pipeline for '${req.schema}.${req.table}'?`,
+      [
+        `Are you sure you want to remove this pipeline?`,
+        `- Table: '${req.schema}.${req.table}'`,
+        `- Stream: '${req.stream}'`,
+      ],
+      () => {
+        this.http.post<any>(`/api/v1/remove-pipeline`, req).subscribe({
+          next: (resp) => {
+            if (resp.error) {
+              this.snackBar.open(resp.msg, 'ok', { duration: 6000 });
+              return;
+            }
+            this.listPipelines();
+          },
+          error: (err) => {
+            console.log(err);
+            this.snackBar.open('Request failed, unknown error', 'ok', {
+              duration: 3000,
+            });
+          },
         });
-      },
-    });
+      }
+    );
   }
 
   // TODO: UI
