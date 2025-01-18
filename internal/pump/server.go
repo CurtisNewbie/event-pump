@@ -247,20 +247,6 @@ func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
 		return nil, miso.NewErrf("Not supported for HA mode")
 	}
 	p := copyApiPipelines()
-	sort.Slice(p, func(i, j int) bool {
-		pi := p[i]
-		pj := p[j]
-		if pi.Schema != pj.Schema {
-			return pi.Schema < pj.Schema
-		}
-		if pi.Table != pj.Table {
-			return pi.Table < pj.Table
-		}
-		if pi.Schema != pj.Schema {
-			return pi.Schema < pj.Schema
-		}
-		return false
-	})
 	return p, nil
 }
 
@@ -292,6 +278,20 @@ func copyApiPipelines() []ApiPipeline {
 		})
 		cp = append(cp, cvt...)
 	}
+	sort.Slice(cp, func(i, j int) bool {
+		pi := cp[i]
+		pj := cp[j]
+		if pi.Schema != pj.Schema {
+			return pi.Schema < pj.Schema
+		}
+		if pi.Table != pj.Table {
+			return pi.Table < pj.Table
+		}
+		if pi.Schema != pj.Schema {
+			return pi.Schema < pj.Schema
+		}
+		return false
+	})
 	return cp
 }
 
