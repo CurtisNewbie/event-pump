@@ -11,6 +11,11 @@ build="${service}_build"
 dockerfile="./Dockerfile_local"
 # ---------
 
+set -e
+
+# dashboard frontend
+( cd front/dashboard && ./build.sh )
+
 echo "Building Go app for platform $os/$arch to binary '$build'"
 CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -o "$build"
 
