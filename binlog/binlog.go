@@ -2,6 +2,7 @@ package binlog
 
 import (
 	"github.com/curtisnewbie/event-pump/client"
+	"github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 )
@@ -45,6 +46,10 @@ func SubscribeBinlogEventsOnBootstrap(p client.Pipeline, concurrency int,
 //
 // Make sure to run this method before miso.PostServerBootstrapped.
 func SubscribeBinlogEventsOnBootstrapV2(opt SubscribeBinlogOption) {
+
+	if opt.Pipeline.Schema == "" {
+		opt.Pipeline.Schema = miso.GetPropStr(mysql.PropMySQLSchema)
+	}
 
 	// create pipeline immediately such that the rabbitmq client can
 	// recognize and register the queue/exchange/binding declration.
