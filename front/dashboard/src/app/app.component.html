@@ -27,7 +27,7 @@
       </ng-container>
 
       <ng-container matColumnDef="condition">
-        <th mat-header-cell *matHeaderCellDef>Column-Changed Condition</th>
+        <th mat-header-cell *matHeaderCellDef>On Column-Changed</th>
         <td mat-cell *matCellDef="let u">
           <div *ngIf="u.condition && u.condition.columnChanged">
             {{ u.condition.columnChanged.join(', ') }}
