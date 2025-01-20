@@ -12,9 +12,6 @@ type SubscribeBinlogOption struct {
 	// binlog event pipeline
 	Pipeline client.Pipeline
 
-	// merged binlog event pipeline
-	MergedPipeline client.MergedPipeline
-
 	// concurrency
 	Concurrency int
 

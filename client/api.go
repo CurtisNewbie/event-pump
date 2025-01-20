@@ -17,14 +17,16 @@ const (
 	EventTypeDelete = "DEL"
 )
 
+type MPipeline struct {
+	Schema     string      // schema name
+	Table      string      // table name
+	EventTypes []EventType // event types subscribed
+	Condition  Condition   // extra binlog filtering condition
+}
+
 type MergedPipeline struct {
 	Stream    string // miso event bus name
-	Pipelines []struct {
-		Schema     string      // schema name
-		Table      string      // table name
-		EventTypes []EventType // event types subscribed
-		Condition  Condition   // extra binlog filtering condition
-	}
+	Pipelines []MPipeline
 }
 
 type Pipeline struct {
