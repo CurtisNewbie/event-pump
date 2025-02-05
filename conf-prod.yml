@@ -45,3 +45,12 @@ filter:
 local:
   pipelines:
     file: /usr/src/data/pipelines.json
+
+# only needed for moon-monorepo, completely optional
+consul:
+  enabled: false
+  consulAddress: "${CONSUL_HOST}:8500"
+  healthCheckUrl: /health
+  healthCheckInterval: 120s
+  healthCheckTimeout: 120s
+  healthCheckFailedDeregisterAfter: 5s

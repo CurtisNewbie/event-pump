@@ -9,6 +9,7 @@ Simple app to parse and stream MySQL binlog event in real time. It's Powered by 
 - MySQL
 - RabbitMQ
 - ZooKeeper (if HA mode is enabled)
+- Consul (if event-pump is used for [github.com/curtisnewbie/moon-monorepo](https://github.com/curtisnewbie/moon-monorepo))
 
 MySQL must enable binlog replication (it's enabled by default on MySQL 8.x).
 
@@ -195,7 +196,7 @@ e.g.,
 
 ## Change Dashboard's Base URL
 
-1. Change base url of the dashboard's frontend resources (e.g., the *.js files):
+To change base url of the dashboard's frontend resources (e.g., the \*.js files):
 
 Open angular.json, change following property:
 
@@ -209,7 +210,7 @@ Open angular.json, change following property:
 }
 ```
 
-2. Change the api base url:
+To change the api base url:
 
 Open src/environments/environment.prod.ts, change the value of `baseApi`:
 

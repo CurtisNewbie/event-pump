@@ -13,6 +13,7 @@ import (
 
 	"github.com/curtisnewbie/miso/encoding"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
+	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -21,6 +22,8 @@ import (
 const (
 	PropHAEnabled          = "ha.enabled"
 	PropPipelineConfigFile = "local.pipelines.file"
+
+	DashboardResourceCode = "event-pump-dashboard"
 )
 
 var (
@@ -48,6 +51,10 @@ func init() {
 }
 
 func PreServerBootstrap(rail miso.Rail) error {
+
+	// for moon-monorepo project, if event-pump was deployed as a standalone project, then this has no effect
+	prepareResourceForMoon()
+
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
 
@@ -217,37 +224,6 @@ func pipelineTypeRegex(typs []string) string {
 	typs = util.Distinct(typs)
 	sort.Strings(typs)
 	return "^(" + strings.Join(typs, "|") + ")$"
-}
-
-// misoapi-http: POST /api/v1/create-pipeline
-// misoapi-desc: Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
-func ApiCreatePipeline(rail miso.Rail, pipeline ApiPipeline) error {
-	p := pipeline.Pipeline()
-	if isHaMode() {
-		return miso.NewErrf("Not supported for HA mode")
-	}
-	return AddPipeline(rail, p)
-}
-
-// misoapi-http: POST /api/v1/remove-pipeline
-// misoapi-desc: Remove existing pipeline. HA is not supported.
-func ApiRemovePipeline(rail miso.Rail, pipeline ApiPipeline) error {
-	p := pipeline.Pipeline()
-	if isHaMode() {
-		return miso.NewErrf("Not supported for HA mode")
-	}
-	RemovePipeline(rail, p)
-	return nil
-}
-
-// misoapi-http: GET /api/v1/list-pipeline
-// misoapi-desc: List existing pipeline. HA is not supported.
-func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
-	if isHaMode() {
-		return nil, miso.NewErrf("Not supported for HA mode")
-	}
-	p := copyApiPipelines()
-	return p, nil
 }
 
 func copyPipelines() []Pipeline {
@@ -493,4 +469,19 @@ func BootstrapServer(args []string) {
 	miso.PreServerBootstrap(PreServerBootstrap)
 	miso.PostServerBootstrapped(PostServerBootstrap)
 	miso.BootstrapServer(args)
+}
+
+func prepareResourceForMoon() {
+	auth.ExposeResourceInfo(
+		[]auth.Resource{
+			{Name: "event-pump dashboard", Code: DashboardResourceCode},
+		},
+		auth.Endpoint{
+			Type:    auth.ScopeProtected,
+			Url:     "/event-pump/**",
+			Group:   "event-pump",
+			Desc:    "event-pump dashboard and api",
+			ResCode: DashboardResourceCode,
+			Method:  "*",
+		})
 }

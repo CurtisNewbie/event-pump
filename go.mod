@@ -1,17 +1,21 @@
 module github.com/curtisnewbie/event-pump
 
-go 1.18
+go 1.22
+
+toolchain go1.23.0
 
 require (
-	github.com/curtisnewbie/miso v0.1.8
+	github.com/curtisnewbie/miso v0.1.14-beta.5.0.20250205154757-87716e8ba93b
 	github.com/go-mysql-org/go-mysql v1.7.0
 	github.com/go-zookeeper/zk v1.0.4
+	github.com/spf13/cast v1.6.0
 	gorm.io/gorm v1.23.8
 )
 
 require (
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.8.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -60,7 +64,6 @@ require (
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
-	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.14.0 // indirect
