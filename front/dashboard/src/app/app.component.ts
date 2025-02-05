@@ -7,6 +7,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { HttpClientModule } from '@angular/common/http';
 import { ConfirmDialog } from './common/dialog';
+import { environment } from '../environments/environment';
 
 export interface ApiPipeline {
   schema?: string; // schema name
@@ -49,7 +50,7 @@ export class AppComponent implements AfterViewInit {
   }
 
   listPipelines() {
-    this.http.get<any>(`/api/v1/list-pipeline`).subscribe({
+    this.http.get<any>(`${environment.baseApi}/api/v1/list-pipeline`).subscribe({
       next: (resp) => {
         if (resp.error) {
           this.snackBar.open(resp.msg, 'ok', { duration: 6000 });
@@ -79,7 +80,7 @@ export class AppComponent implements AfterViewInit {
         `- Stream: '${req.stream}'`,
       ],
       () => {
-        this.http.post<any>(`/api/v1/remove-pipeline`, req).subscribe({
+        this.http.post<any>(`${environment.baseApi}/api/v1/remove-pipeline`, req).subscribe({
           next: (resp) => {
             if (resp.error) {
               this.snackBar.open(resp.msg, 'ok', { duration: 6000 });
@@ -100,7 +101,7 @@ export class AppComponent implements AfterViewInit {
 
   // TODO: UI
   createPipeline(req: ApiPipeline) {
-    this.http.post<any>(`/api/v1/create-pipeline`, req).subscribe({
+    this.http.post<any>(`${environment.baseApi}/api/v1/create-pipeline`, req).subscribe({
       next: (resp) => {
         if (resp.error) {
           this.snackBar.open(resp.msg, 'ok', { duration: 6000 });

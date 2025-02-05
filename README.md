@@ -192,3 +192,30 @@ e.g.,
   }
 ]
 ```
+
+## Change Dashboard's Base URL
+
+1. Change base url of the dashboard's frontend resources (e.g., the *.js files):
+
+Open angular.json, change following property:
+
+```json
+"build": {
+  "builder": "@angular-devkit/build-angular:application",
+  "options": {
+    "baseHref": "/static/", // change this
+  },
+  // ....
+}
+```
+
+2. Change the api base url:
+
+Open src/environments/environment.prod.ts, change the value of `baseApi`:
+
+```ts
+export const environment = {
+  production: true,
+  baseApi: "", // change this
+};
+```
