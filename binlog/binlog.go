@@ -2,7 +2,6 @@ package binlog
 
 import (
 	"github.com/curtisnewbie/event-pump/client"
-	"github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
@@ -65,7 +64,7 @@ func SubscribeBinlogEventsOnBootstrap(p client.Pipeline, concurrency int,
 func SubscribeBinlogEventsOnBootstrapV2(opt SubscribeBinlogOption) {
 
 	if opt.Pipeline.Schema == "" {
-		opt.Pipeline.Schema = miso.GetPropStr(mysql.PropMySQLSchema)
+		opt.Pipeline.Schema = miso.GetPropStr("mysql.database") // mysql.PropMySQLSchema
 	}
 
 	// create pipeline immediately such that the rabbitmq client can
@@ -95,7 +94,7 @@ func SubscribeBinlogEventsOnBootstrapV3(opt SubscribeBinlogOptionV3) {
 	rabbit.NewEventPipeline[client.StreamEvent](opt.MergedPipeline.Stream).
 		Listen(opt.Concurrency, opt.Listener)
 
-	appSchema := miso.GetPropStr(mysql.PropMySQLSchema)
+	appSchema := miso.GetPropStr("mysql.database") // mysql.PropMySQLSchema
 	pipelines := opt.MergedPipeline.Pipelines
 	for i := range pipelines {
 		{
