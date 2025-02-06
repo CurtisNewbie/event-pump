@@ -46,7 +46,7 @@ local:
   pipelines:
     file: /usr/src/data/pipelines.json
 
-# only needed for moon-monorepo, completely optional
+# only needed for showing dashboard in moon-monorepo, completely optional
 consul:
   enabled: false
   consulAddress: "${CONSUL_HOST}:8500"

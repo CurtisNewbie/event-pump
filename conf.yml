@@ -40,7 +40,7 @@ filter:
   include: ''
   exclude: ''
 
-# only needed for moon-monorepo, completely optional
+# only needed for showing dashboard in moon-monorepo, completely optional
 consul:
   enabled: false
   consulAddress: localhost:8500

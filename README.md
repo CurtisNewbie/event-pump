@@ -170,10 +170,6 @@ E.g., Using `zkCli`:
 # {"Name":"mysql-bin.000004","Pos":2842305}
 ```
 
-## More Documentation
-
-- [API Endpoints](./doc/api.md)
-
 ## Creating / Removing Pipelines Through API
 
 event-pump now provides API endpoints to create or remove pipelines in non-HA mode. The pipelines created are by default saved locally in file named `pipelines.json` (see configuration for `'local.pipelines.file'`).
@@ -220,3 +216,20 @@ export const environment = {
   baseApi: "", // change this
 };
 ```
+
+## Build Executable
+
+```sh
+# build dashboard frontend (optional)
+( cd front/dashboard && ./build.sh )
+
+# executable
+os="linux"
+arch="amd64"
+build="event-pump_build"
+CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -o "$build"
+```
+
+## More Documentation
+
+- [API Endpoints](./doc/api.md)
