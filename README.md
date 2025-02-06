@@ -221,7 +221,11 @@ export const environment = {
 
 ```sh
 # build dashboard frontend (optional)
-( cd front/dashboard && ./build.sh )
+(
+  cd front/dashboard
+  npm ci
+  ./build.sh # for moon-monorepo, use ./build_moon.sh instead
+)
 
 # executable
 os="linux"
