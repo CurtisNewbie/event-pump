@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/curtisnewbie/miso/encoding"
+	"github.com/curtisnewbie/miso/encoding/json"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
@@ -104,7 +104,7 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 		return pl
 	}
 
-	err = encoding.ParseJson(c, &pl)
+	err = json.ParseJson(c, &pl)
 	if err != nil {
 		rail.Infof("Parse local Pipeline failed, %v", err)
 		return pl
@@ -116,9 +116,10 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 		p.Enabled = true
 		if p.Type != "" {
 			sub := typeRegex.FindStringSubmatch(p.Type)
-			rail.Infof("sub: %v", sub)
+			rail.Debugf("sub: %v", sub)
 			if len(sub) > 1 {
 				p.Types = strings.Split(sub[1], "|")
+				p.Type = pipelineTypeRegex(p.Types)
 			}
 		}
 		pl[i] = p
@@ -151,7 +152,7 @@ func saveLocalConfigs() {
 
 	_ = f.Truncate(0)
 
-	s, err := encoding.SWriteJson(pl)
+	s, err := json.SWriteJson(pl)
 	if err != nil {
 		rail.Errorf("Failed to save local config file, '%v', %v", wbuf, err)
 		return
