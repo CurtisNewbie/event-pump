@@ -38,10 +38,16 @@ const (
 )
 
 var (
-	currPos mysql.Position = mysql.Position{Name: "", Pos: 0}
-	nextPos mysql.Position = currPos
-	posMu   sync.Mutex
+	currPos                mysql.Position = mysql.Position{Name: "", Pos: 0}
+	nextPos                mysql.Position = currPos
+	posChangeTime          time.Time
+	posChangeWarnTime      time.Time
+	posChangeWarnThreshold time.Duration = time.Minute * 5
+	posChangeWarnInterval  time.Duration = time.Minute * 1
+	posMu                  sync.Mutex
+)
 
+var (
 	// posFile is flushed in every 1s (at most)
 	updatePosFileTicker *miso.TickRunner = miso.NewTickRuner(time.Millisecond*1000, FlushPos)
 
@@ -257,7 +263,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			atomic.StoreInt32(&resyncErrCount, 0) // reset the err count
 			evtLogBuf := strings.Builder{}
 			ev.Dump(&evtLogBuf)
-			c.Debug(evtLogBuf.String())
+			c.Info(evtLogBuf.String())
 
 			/*
 				We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually
@@ -451,6 +457,7 @@ func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 		User:                 miso.GetPropStr(PropSyncUser),
 		Password:             miso.GetPropStr(PropSyncPassword),
 		MaxReconnectAttempts: miso.GetPropInt(PropSyncMaxReconnect),
+		HeartbeatPeriod:      time.Second * 10,
 		Logger:               rail,
 	}
 
@@ -539,9 +546,18 @@ func detachLocalPosFile(rail miso.Rail) {
 func FlushPos() {
 	posMu.Lock()
 	defer posMu.Unlock()
+
+	now := time.Now()
 	if currPos.Name == nextPos.Name && currPos.Pos == nextPos.Pos {
+		if posChangeTime.IsZero() {
+			posChangeTime = now
+		} else if now.Sub(posChangeTime) > posChangeWarnThreshold && now.After(posChangeWarnTime.Add(posChangeWarnInterval)) {
+			posChangeWarnTime = now
+			miso.Warnf("Binlog pos hasn't changed for a while, last time pos changed was %v, currPos: %+v", posChangeTime.Format(util.StdDateTimeMilliFormat), currPos)
+		}
 		return
 	}
+	posChangeTime = now
 	s, e := json.Marshal(nextPos)
 	if e != nil {
 		miso.Errorf("failed to update posFile, unable to marshal pos %+v, %v", nextPos, e)
@@ -599,7 +615,12 @@ func ReadPos(rail miso.Rail) (mysql.Position, error) {
 		return mysql.Position{}, e
 	}
 
+	posMu.Lock()
+	currPos = pos
+	nextPos = currPos
 	rail.Infof("Last position: %v - %v", pos.Name, pos.Pos)
+	posMu.Unlock()
+
 	return pos, nil
 }
 
