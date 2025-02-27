@@ -52,7 +52,6 @@ var (
 	updatePosFileTicker *miso.TickRunner = miso.NewTickRuner(time.Millisecond*1000, FlushPos)
 
 	posFile      *os.File = nil
-	logFileName           = ""
 	tableInfoMap          = make(map[string]TableInfo)
 	conn         *gorm.DB = nil
 
@@ -386,8 +385,8 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			// end of event handling, we are mainly handling log pos here
 		event_handle_end:
 
-			// in most cases, lostPos is on event header
 			var logPos uint32
+			var logFileName string
 
 			// we don't always update pos on all events, even though some of them have position
 			// if we update whenever we can, we may end up being stuck somewhere the next time we
@@ -408,12 +407,13 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 				it does seems like it's the 2PC thing for between the server and innodb engine in binlog
 			*/
-			case *replication.QueryEvent, *replication.XIDEvent:
-				logPos = ev.Header.LogPos
+			// case *replication.QueryEvent, *replication.XIDEvent:
+			// 	logPos = ev.Header.LogPos
 
-			// this event shouldn't update our log pos
 			default:
-				continue
+				if ev.Header.LogPos > 0 {
+					logPos = ev.Header.LogPos
+				}
 			}
 
 			// update position
@@ -429,11 +429,19 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 	}
 }
 
-func updatePos(c miso.Rail, pos mysql.Position) {
-	c.Infof("Next pos: %+v", pos)
+func updatePos(c miso.Rail, p mysql.Position) {
 	posMu.Lock()
 	defer posMu.Unlock()
-	nextPos = pos
+
+	if p.Name == nextPos.Name && p.Pos == nextPos.Pos {
+		return
+	}
+
+	c.Infof("Next pos: %+v", p)
+	if p.Name != "" {
+		nextPos.Name = p.Name
+	}
+	nextPos.Pos = p.Pos
 }
 
 func readLocalPosFile(c miso.Rail) ([]byte, error) {
