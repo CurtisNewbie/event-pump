@@ -17,6 +17,8 @@ type SubscribeBinlogOption struct {
 	// event listener
 	Listener func(rail miso.Rail, t client.StreamEvent) error
 
+	ListenerLogPayload bool
+
 	// continue bootstrap even if pipeline creation was failed,
 	// it's only necessary to create pipeline once.
 	ContinueOnErr bool
@@ -32,6 +34,8 @@ type SubscribeBinlogOptionV3 struct {
 
 	// event listener
 	Listener func(rail miso.Rail, t client.StreamEvent) error
+
+	ListenerLogPayload bool
 
 	// continue bootstrap even if pipeline creation was failed,
 	// it's only necessary to create pipeline once.
@@ -69,8 +73,11 @@ func SubscribeBinlogEventsOnBootstrapV2(opt SubscribeBinlogOption) {
 
 	// create pipeline immediately such that the rabbitmq client can
 	// recognize and register the queue/exchange/binding declration.
-	rabbit.NewEventPipeline[client.StreamEvent](opt.Pipeline.Stream).
+	ep := rabbit.NewEventPipeline[client.StreamEvent](opt.Pipeline.Stream).
 		Listen(opt.Concurrency, opt.Listener)
+	if opt.ListenerLogPayload {
+		ep.LogPayload()
+	}
 
 	miso.PostServerBootstrapped(func(rail miso.Rail) error {
 		err := client.CreatePipeline(rail, opt.Pipeline)
@@ -91,8 +98,11 @@ func SubscribeBinlogEventsOnBootstrapV3(opt SubscribeBinlogOptionV3) {
 
 	// create pipeline immediately such that the rabbitmq client can
 	// recognize and register the queue/exchange/binding declration.
-	rabbit.NewEventPipeline[client.StreamEvent](opt.MergedPipeline.Stream).
+	ep := rabbit.NewEventPipeline[client.StreamEvent](opt.MergedPipeline.Stream).
 		Listen(opt.Concurrency, opt.Listener)
+	if opt.ListenerLogPayload {
+		ep.LogPayload()
+	}
 
 	appSchema := miso.GetPropStr("mysql.database") // mysql.PropMySQLSchema
 	pipelines := opt.MergedPipeline.Pipelines
