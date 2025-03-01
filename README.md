@@ -146,7 +146,7 @@ Then update the binlog name and position back to the `binlog_pos` file, and then
 
 ## Prometheus Metrics
 
-- `event-pump_binlog_event`: histogram for binlog event processing.
+- `event_pump_binlog_event`: histogram for binlog event processing.
 
 ## High-Availability Mode
 
