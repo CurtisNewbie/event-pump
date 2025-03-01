@@ -259,6 +259,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 				continue // retry GetEvent
 			}
 
+			t := NewBinlogEventTimer()
 			atomic.StoreInt32(&resyncErrCount, 0) // reset the err count
 			evtLogBuf := strings.Builder{}
 			ev.Dump(&evtLogBuf)
@@ -295,7 +296,6 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						ResetTableInfoCache(c, string(qe.Schema), table)
 					}
 				}
-				continue
 
 			case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 
@@ -418,6 +418,8 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 			// update position
 			updatePos(c, mysql.Position{Name: logFileName, Pos: logPos})
+
+			t.ObserveDuration()
 
 			if miso.IsShuttingDown() {
 				c.Info("Server shutting down")

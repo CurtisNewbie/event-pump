@@ -144,6 +144,10 @@ show binlog events limit 1;
 
 Then update the binlog name and position back to the `binlog_pos` file, and then restart event-pump.
 
+## Prometheus Metrics
+
+- `event-pump_binlog_event`: histogram for binlog event processing.
+
 ## High-Availability Mode
 
 event-pump also supports HA using ZooKeeper. Enable HA mode as follows:
