@@ -439,11 +439,11 @@ func updatePos(c miso.Rail, p mysql.Position) {
 		return
 	}
 
-	c.Infof("Next pos: %+v", p)
 	if p.Name != "" {
 		nextPos.Name = p.Name
 	}
 	nextPos.Pos = p.Pos
+	c.Infof("Next pos: %+v", nextPos)
 }
 
 func readLocalPosFile(c miso.Rail) ([]byte, error) {

@@ -1,190 +1,232 @@
 # API Endpoints
 
-- POST /api/v1/create-pipeline
-  - Description: Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
-  - JSON Request:
+## Contents
+
+- [POST /api/v1/create-pipeline](#post-apiv1create-pipeline)
+- [POST /api/v1/remove-pipeline](#post-apiv1remove-pipeline)
+- [GET /api/v1/list-pipeline](#get-apiv1list-pipeline)
+- [GET /auth/resource](#get-authresource)
+- [GET /metrics](#get-metrics)
+- [GET /debug/pprof](#get-debugpprof)
+- [GET /debug/pprof/:name](#get-debugpprofname)
+- [GET /debug/pprof/cmdline](#get-debugpprofcmdline)
+- [GET /debug/pprof/profile](#get-debugpprofprofile)
+- [GET /debug/pprof/symbol](#get-debugpprofsymbol)
+- [GET /debug/pprof/trace](#get-debugpproftrace)
+- [GET /doc/api](#get-docapi)
+
+## POST /api/v1/create-pipeline
+
+- Description: Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
+- JSON Request:
     - "schema": (string) schema name
     - "table": (string) table name
     - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
     - "stream": (string) event bus name
     - "condition": (Condition) extra filtering conditions
       - "columnChanged": ([]string) 
-  - JSON Response:
+- JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
-  - cURL:
-    ```sh
-    curl -X POST 'http://localhost:8088/api/v1/create-pipeline' \
-      -H 'Content-Type: application/json' \
-      -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
-    ```
+- cURL:
+  ```sh
+  curl -X POST 'http://localhost:8088/api/v1/create-pipeline' \
+    -H 'Content-Type: application/json' \
+    -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func ApiCreatePipeline(rail miso.Rail, req ApiPipeline) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/api/v1/create-pipeline", "event-pump").
-    		PostJson(req).
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  type ApiPipeline struct {
+  	Schema string                  // schema name
+  	Table string                   // table name
+  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string                  // event bus name
+  	Condition pump.Condition
+  }
 
-  - JSON Request Object In TypeScript:
-    ```ts
-    export interface ApiPipeline {
-      schema?: string;               // schema name
-      table?: string;                // table name
-      eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
-      stream?: string;               // event bus name
-      condition?: Condition;
-    }
+  type Condition struct {
+  	ColumnChanged []string
+  }
 
-    export interface Condition {
-      columnChanged?: string[];
-    }
-    ```
+  func ApiCreatePipeline(rail miso.Rail, req ApiPipeline) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/api/v1/create-pipeline", "event-pump").
+  		PostJson(req).
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-  - JSON Response Object In TypeScript:
-    ```ts
-    export interface Resp {
-      errorCode?: string;            // error code
-      msg?: string;                  // message
-      error?: boolean;               // whether the request was successful
-    }
-    ```
+- JSON Request Object In TypeScript:
+  ```ts
+  export interface ApiPipeline {
+    schema?: string;               // schema name
+    table?: string;                // table name
+    eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
+    stream?: string;               // event bus name
+    condition?: Condition;
+  }
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  export interface Condition {
+    columnChanged?: string[];
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- JSON Response Object In TypeScript:
+  ```ts
+  export interface Resp {
+    errorCode?: string;            // error code
+    msg?: string;                  // message
+    error?: boolean;               // whether the request was successful
+  }
+  ```
 
-    createPipeline() {
-      let req: ApiPipeline | null = null;
-      this.http.post<any>(`/event-pump/api/v1/create-pipeline`, req)
-        .subscribe({
-          next: (resp) => {
-            if (resp.error) {
-              this.snackBar.open(resp.msg, "ok", { duration: 6000 })
-              return;
-            }
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
+
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  createPipeline() {
+    let req: ApiPipeline | null = null;
+    this.http.post<any>(`/event-pump/api/v1/create-pipeline`, req)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
           }
-        });
-    }
-    ```
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-- POST /api/v1/remove-pipeline
-  - Description: Remove existing pipeline. HA is not supported.
-  - JSON Request:
+## POST /api/v1/remove-pipeline
+
+- Description: Remove existing pipeline. HA is not supported.
+- JSON Request:
     - "schema": (string) schema name
     - "table": (string) table name
     - "eventTypes": ([]string) event types; INS - Insert, UPD - Update, DEL - Delete
     - "stream": (string) event bus name
     - "condition": (Condition) extra filtering conditions
       - "columnChanged": ([]string) 
-  - JSON Response:
+- JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
-  - cURL:
-    ```sh
-    curl -X POST 'http://localhost:8088/api/v1/remove-pipeline' \
-      -H 'Content-Type: application/json' \
-      -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
-    ```
+- cURL:
+  ```sh
+  curl -X POST 'http://localhost:8088/api/v1/remove-pipeline' \
+    -H 'Content-Type: application/json' \
+    -d '{"condition":{"columnChanged":[]},"eventTypes":[],"schema":"","stream":"","table":""}'
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func ApiRemovePipeline(rail miso.Rail, req ApiPipeline) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/api/v1/remove-pipeline", "event-pump").
-    		PostJson(req).
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  type ApiPipeline struct {
+  	Schema string                  // schema name
+  	Table string                   // table name
+  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string                  // event bus name
+  	Condition pump.Condition
+  }
 
-  - JSON Request Object In TypeScript:
-    ```ts
-    export interface ApiPipeline {
-      schema?: string;               // schema name
-      table?: string;                // table name
-      eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
-      stream?: string;               // event bus name
-      condition?: Condition;
-    }
+  type Condition struct {
+  	ColumnChanged []string
+  }
 
-    export interface Condition {
-      columnChanged?: string[];
-    }
-    ```
+  func ApiRemovePipeline(rail miso.Rail, req ApiPipeline) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/api/v1/remove-pipeline", "event-pump").
+  		PostJson(req).
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-  - JSON Response Object In TypeScript:
-    ```ts
-    export interface Resp {
-      errorCode?: string;            // error code
-      msg?: string;                  // message
-      error?: boolean;               // whether the request was successful
-    }
-    ```
+- JSON Request Object In TypeScript:
+  ```ts
+  export interface ApiPipeline {
+    schema?: string;               // schema name
+    table?: string;                // table name
+    eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
+    stream?: string;               // event bus name
+    condition?: Condition;
+  }
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  export interface Condition {
+    columnChanged?: string[];
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- JSON Response Object In TypeScript:
+  ```ts
+  export interface Resp {
+    errorCode?: string;            // error code
+    msg?: string;                  // message
+    error?: boolean;               // whether the request was successful
+  }
+  ```
 
-    removePipeline() {
-      let req: ApiPipeline | null = null;
-      this.http.post<any>(`/event-pump/api/v1/remove-pipeline`, req)
-        .subscribe({
-          next: (resp) => {
-            if (resp.error) {
-              this.snackBar.open(resp.msg, "ok", { duration: 6000 })
-              return;
-            }
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
+
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  removePipeline() {
+    let req: ApiPipeline | null = null;
+    this.http.post<any>(`/event-pump/api/v1/remove-pipeline`, req)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
           }
-        });
-    }
-    ```
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-- GET /api/v1/list-pipeline
-  - Description: List existing pipeline. HA is not supported.
-  - JSON Response:
+## GET /api/v1/list-pipeline
+
+- Description: List existing pipeline. HA is not supported.
+- JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
@@ -195,85 +237,93 @@
       - "stream": (string) event bus name
       - "condition": (Condition) extra filtering conditions
         - "columnChanged": ([]string) 
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/api/v1/list-pipeline'
-    ```
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/api/v1/list-pipeline'
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
-    	var res miso.GnResp[[]ApiPipeline]
-    	err := miso.NewDynTClient(rail, "/api/v1/list-pipeline", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		var dat []ApiPipeline
-    		return dat, err
-    	}
-    	dat, err := res.Res()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return dat, err
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  type []ApiPipeline struct {
+  	ErrorCode string `json:"errorCode"` // error code
+  	Msg string `json:"msg"`        // message
+  	Error bool `json:"error"`      // whether the request was successful
+  	Data interface {} `json:"data"` // response data
+  }
 
-  - JSON Response Object In TypeScript:
-    ```ts
-    export interface Resp {
-      errorCode?: string;            // error code
-      msg?: string;                  // message
-      error?: boolean;               // whether the request was successful
-      data?: ApiPipeline[];
-    }
+  func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
+  	var res miso.GnResp[[]ApiPipeline]
+  	err := miso.NewDynTClient(rail, "/api/v1/list-pipeline", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		var dat []ApiPipeline
+  		return dat, err
+  	}
+  	dat, err := res.Res()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return dat, err
+  }
+  ```
 
-    export interface ApiPipeline {
-      schema?: string;               // schema name
-      table?: string;                // table name
-      eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
-      stream?: string;               // event bus name
-      condition?: Condition;
-    }
+- JSON Response Object In TypeScript:
+  ```ts
+  export interface Resp {
+    errorCode?: string;            // error code
+    msg?: string;                  // message
+    error?: boolean;               // whether the request was successful
+    data?: ApiPipeline[];
+  }
 
-    export interface Condition {
-      columnChanged?: string[];
-    }
-    ```
+  export interface ApiPipeline {
+    schema?: string;               // schema name
+    table?: string;                // table name
+    eventTypes?: string[];         // event types; INS - Insert, UPD - Update, DEL - Delete
+    stream?: string;               // event bus name
+    condition?: Condition;
+  }
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  export interface Condition {
+    columnChanged?: string[];
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-    listPipelines() {
-      this.http.get<any>(`/event-pump/api/v1/list-pipeline`)
-        .subscribe({
-          next: (resp) => {
-            if (resp.error) {
-              this.snackBar.open(resp.msg, "ok", { duration: 6000 })
-              return;
-            }
-            let dat: ApiPipeline[] = resp.data;
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  listPipelines() {
+    this.http.get<any>(`/event-pump/api/v1/list-pipeline`)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
           }
-        });
-    }
-    ```
+          let dat: ApiPipeline[] = resp.data;
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-- GET /auth/resource
-  - Description: Expose resource and endpoint information to other backend service for authorization.
-  - Expected Access Scope: PROTECTED
-  - JSON Response:
+## GET /auth/resource
+
+- Description: Expose resource and endpoint information to other backend service for authorization.
+- Expected Access Scope: PROTECTED
+- JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
@@ -288,481 +338,501 @@
         - "desc": (string) description of the endpoint
         - "resCode": (string) resource code
         - "method": (string) http method
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/auth/resource'
-    ```
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/auth/resource'
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) (GnResp, error) {
-    	var res miso.GnResp[GnResp]
-    	err := miso.NewDynTClient(rail, "/auth/resource", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		var dat GnResp
-    		return dat, err
-    	}
-    	dat, err := res.Res()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return dat, err
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  type GnResp struct {
+  	ErrorCode string `json:"errorCode"` // error code
+  	Msg string `json:"msg"`        // message
+  	Error bool `json:"error"`      // whether the request was successful
+  	Data auth.ResourceInfoRes `json:"data"`
+  }
 
-  - JSON Response Object In TypeScript:
-    ```ts
-    export interface GnResp {
-      errorCode?: string;            // error code
-      msg?: string;                  // message
-      error?: boolean;               // whether the request was successful
-      data?: ResourceInfoRes;
-    }
+  type ResourceInfoRes struct {
+  	Resources []auth.Resource
+  	Paths []auth.Endpoint
+  }
 
-    export interface ResourceInfoRes {
-      resources?: Resource[];
-      paths?: Endpoint[];
-    }
+  func SendRequest(rail miso.Rail) (GnResp, error) {
+  	var res miso.GnResp[GnResp]
+  	err := miso.NewDynTClient(rail, "/auth/resource", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		var dat GnResp
+  		return dat, err
+  	}
+  	dat, err := res.Res()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return dat, err
+  }
+  ```
 
-    export interface Resource {
-      name?: string;                 // resource name
-      code?: string;                 // resource code, unique identifier
-    }
+- JSON Response Object In TypeScript:
+  ```ts
+  export interface GnResp {
+    errorCode?: string;            // error code
+    msg?: string;                  // message
+    error?: boolean;               // whether the request was successful
+    data?: ResourceInfoRes;
+  }
 
-    export interface Endpoint {
-      type?: string;                 // access scope type: PROTECTED/PUBLIC
-      url?: string;                  // endpoint url
-      group?: string;                // app name
-      desc?: string;                 // description of the endpoint
-      resCode?: string;              // resource code
-      method?: string;               // http method
-    }
-    ```
+  export interface ResourceInfoRes {
+    resources?: Resource[];
+    paths?: Endpoint[];
+  }
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  export interface Resource {
+    name?: string;                 // resource name
+    code?: string;                 // resource code, unique identifier
+  }
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+  export interface Endpoint {
+    type?: string;                 // access scope type: PROTECTED/PUBLIC
+    url?: string;                  // endpoint url
+    group?: string;                // app name
+    desc?: string;                 // description of the endpoint
+    resCode?: string;              // resource code
+    method?: string;               // http method
+  }
+  ```
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/auth/resource`)
-        .subscribe({
-          next: (resp) => {
-            if (resp.error) {
-              this.snackBar.open(resp.msg, "ok", { duration: 6000 })
-              return;
-            }
-            let dat: ResourceInfoRes = resp.data;
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
+
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  sendRequest() {
+    this.http.get<any>(`/event-pump/auth/resource`)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
           }
-        });
-    }
-    ```
+          let dat: ResourceInfoRes = resp.data;
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-- GET /metrics
-  - Description: Collect prometheus metrics information
-  - Header Parameter:
-    - "Authorization": Basic authorization if enabled
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/metrics' \
-      -H 'Authorization: '
-    ```
+## GET /metrics
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail, authorization string) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/metrics", "event-pump").
-    		AddHeader("authorization", authorization).
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- Description: Collect prometheus metrics information
+- Header Parameter:
+  - "Authorization": Basic authorization if enabled
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/metrics' \
+    -H 'Authorization: '
+  ```
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail, authorization string) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/metrics", "event-pump").
+  		AddHeader("authorization", authorization).
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-    sendRequest() {
-      let authorization: any | null = null;
-      this.http.get<any>(`/event-pump/metrics`,
-        {
-          headers: {
-            "Authorization": authorization
-          }
-        })
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-- GET /debug/pprof
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof'
-    ```
+  sendRequest() {
+    let authorization: any | null = null;
+    this.http.get<any>(`/event-pump/metrics`,
+      {
+        headers: {
+          "Authorization": authorization
+        }
+      })
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+## GET /debug/pprof
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof'
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-- GET /debug/pprof/:name
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof/:name'
-    ```
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof/:name", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+## GET /debug/pprof/:name
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof/:name'
+  ```
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof/:name`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof/:name", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-- GET /debug/pprof/cmdline
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof/cmdline'
-    ```
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof/cmdline", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof/:name`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+## GET /debug/pprof/cmdline
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof/cmdline`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof/cmdline'
+  ```
 
-- GET /debug/pprof/profile
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof/profile'
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof/cmdline", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof/profile", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof/cmdline`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof/profile`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+## GET /debug/pprof/profile
 
-- GET /debug/pprof/symbol
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof/symbol'
-    ```
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof/profile'
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof/symbol", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof/profile", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof/symbol`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof/profile`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-- GET /debug/pprof/trace
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/debug/pprof/trace'
-    ```
+## GET /debug/pprof/symbol
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/debug/pprof/trace", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof/symbol'
+  ```
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof/symbol", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/debug/pprof/trace`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
 
-- GET /doc/api
-  - Description: Serve the generated API documentation webpage
-  - Expected Access Scope: PUBLIC
-  - cURL:
-    ```sh
-    curl -X GET 'http://localhost:8088/doc/api'
-    ```
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof/symbol`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
 
-  - Miso HTTP Client:
-    ```go
-    func SendRequest(rail miso.Rail) error {
-    	var res miso.GnResp[any]
-    	err := miso.NewDynTClient(rail, "/doc/api", "event-pump").
-    		Get().
-    		Json(&res)
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    		return err
-    	}
-    	err = res.Err()
-    	if err != nil {
-    		rail.Errorf("Request failed, %v", err)
-    	}
-    	return err
-    }
-    ```
+## GET /debug/pprof/trace
 
-  - Angular HttpClient Demo:
-    ```ts
-    import { MatSnackBar } from "@angular/material/snack-bar";
-    import { HttpClient } from "@angular/common/http";
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/debug/pprof/trace'
+  ```
 
-    constructor(
-      private snackBar: MatSnackBar,
-      private http: HttpClient
-    ) {}
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/debug/pprof/trace", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
 
-    sendRequest() {
-      this.http.get<any>(`/event-pump/doc/api`)
-        .subscribe({
-          next: () => {
-          },
-          error: (err) => {
-            console.log(err)
-            this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-          }
-        });
-    }
-    ```
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
+
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  sendRequest() {
+    this.http.get<any>(`/event-pump/debug/pprof/trace`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
+
+## GET /doc/api
+
+- Description: Serve the generated API documentation webpage
+- Expected Access Scope: PUBLIC
+- cURL:
+  ```sh
+  curl -X GET 'http://localhost:8088/doc/api'
+  ```
+
+- Miso HTTP Client (experimental, demo may not work):
+  ```go
+  func SendRequest(rail miso.Rail) error {
+  	var res miso.GnResp[any]
+  	err := miso.NewDynTClient(rail, "/doc/api", "event-pump").
+  		Get().
+  		Json(&res)
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  		return err
+  	}
+  	err = res.Err()
+  	if err != nil {
+  		rail.Errorf("Request failed, %v", err)
+  	}
+  	return err
+  }
+  ```
+
+- Angular HttpClient Demo:
+  ```ts
+  import { MatSnackBar } from "@angular/material/snack-bar";
+  import { HttpClient } from "@angular/common/http";
+
+  constructor(
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  sendRequest() {
+    this.http.get<any>(`/event-pump/doc/api`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+  }
+  ```
