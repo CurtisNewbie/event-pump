@@ -473,8 +473,9 @@ func PrepareSync(rail miso.Rail) (*replication.BinlogSyncer, error) {
 		User:                 miso.GetPropStr(PropSyncUser),
 		Password:             miso.GetPropStr(PropSyncPassword),
 		MaxReconnectAttempts: miso.GetPropInt(PropSyncMaxReconnect),
-		HeartbeatPeriod:      time.Second * 10,
+		HeartbeatPeriod:      time.Second * 5,
 		Logger:               rail,
+		ReadTimeout:          time.Second * 30,
 	}
 
 	p := ms.MySQLConnParam{
