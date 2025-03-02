@@ -29,6 +29,7 @@ const (
 	PropSyncPassword     = "sync.password"
 	PropSyncPosFile      = "sync.pos.file"
 	PropSyncMaxReconnect = "sync.max-reconnect"
+	PropLogEvent         = "sync.log-event"
 
 	flavorMysql = "mysql"
 
@@ -76,6 +77,7 @@ var (
 )
 
 func init() {
+	miso.SetDefProp(PropLogEvent, "true")
 	miso.SetDefProp(PropSyncServerId, 100)
 	miso.SetDefProp(PropSyncHost, "127.0.0.1")
 	miso.SetDefProp(PropSyncPort, 3306)
@@ -241,6 +243,8 @@ func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error
 }
 
 func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
+	logEvent := miso.GetPropBool(PropLogEvent)
+
 	for {
 		select {
 		case <-c.Context().Done():
@@ -261,9 +265,11 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 			t := NewBinlogEventTimer()
 			atomic.StoreInt32(&resyncErrCount, 0) // reset the err count
-			evtLogBuf := strings.Builder{}
-			ev.Dump(&evtLogBuf)
-			c.Info(evtLogBuf.String())
+			if logEvent {
+				evtLogBuf := strings.Builder{}
+				ev.Dump(&evtLogBuf)
+				c.Info(evtLogBuf.String())
+			}
 
 			/*
 				We are not using Table.ColumnNameString() to resolve the actual column names, the column names are actually

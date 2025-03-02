@@ -29,6 +29,7 @@ sync:
   user: root
   password:
   max-reconnect: 10
+  log-event: false
 
 ha:
   enabled: false

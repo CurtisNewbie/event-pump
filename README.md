@@ -34,6 +34,7 @@ For more configuration, check [miso](https://github.com/CurtisNewbie/miso).
 | sync.port                             | port of the master MySQL instance                                                                                                                | 3306           |
 | sync.pos.file                         | binlog position file **(be careful if you are upgrading event-pump)**                                                                            | binlog_pos     |
 | sync.max-reconnect                    | max reconnect attempts (reconnect every second, 0 means infinite retry)                                                                          | 120            |
+| sync.log-event                        | log binary events                                                                                                                                | true           |
 | filter.include                        | regexp for filtering schema names, if specified, only thoes thare are matched are included                                                       |                |
 | filter.exclude                        | regexp for filtering schema names, if specified, thoes that thare are matched are excluded, `exclude` filter is executed before `include` filter |                |
 | local.pipelines.file                  | locally cached pipeline configurations                                                                                                           | pipelines.json |
