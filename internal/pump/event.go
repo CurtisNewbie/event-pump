@@ -441,7 +441,8 @@ func updatePos(c miso.Rail, p mysql.Position) {
 	posMu.Lock()
 	defer posMu.Unlock()
 
-	if p.Name == nextPos.Name && p.Pos == nextPos.Pos {
+	posChangeTime = time.Now()
+	if (p.Name == "" || p.Name == nextPos.Name) && (p.Pos < 1 || p.Pos == nextPos.Pos) {
 		return
 	}
 
@@ -574,7 +575,6 @@ func FlushPos() {
 		}
 		return
 	}
-	posChangeTime = now
 	s, e := json.Marshal(nextPos)
 	if e != nil {
 		miso.Errorf("failed to update posFile, unable to marshal pos %+v, %v", nextPos, e)
