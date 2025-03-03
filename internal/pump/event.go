@@ -39,13 +39,13 @@ const (
 )
 
 var (
-	currPos                mysql.Position = mysql.Position{Name: "", Pos: 0}
-	nextPos                mysql.Position = currPos
-	posChangeTime          time.Time
-	posChangeWarnTime      time.Time
-	posChangeWarnThreshold time.Duration = time.Minute * 5
-	posChangeWarnInterval  time.Duration = time.Minute * 1
-	posMu                  sync.Mutex
+	currPos                 mysql.Position = mysql.Position{Name: "", Pos: 0}
+	nextPos                 mysql.Position = currPos
+	lastBinlogTime          time.Time
+	lastBinlogWarnTime      time.Time
+	binlogWarnTimeThreshold time.Duration = time.Minute * 5
+	binlogWarnInterval      time.Duration = time.Minute * 1
+	posMu                   sync.Mutex
 )
 
 var (
@@ -441,7 +441,7 @@ func updatePos(c miso.Rail, p mysql.Position) {
 	posMu.Lock()
 	defer posMu.Unlock()
 
-	posChangeTime = time.Now()
+	lastBinlogTime = time.Now()
 	if (p.Name == "" || p.Name == nextPos.Name) && (p.Pos < 1 || p.Pos == nextPos.Pos) {
 		return
 	}
@@ -567,11 +567,11 @@ func FlushPos() {
 
 	now := time.Now()
 	if currPos.Name == nextPos.Name && currPos.Pos == nextPos.Pos {
-		if posChangeTime.IsZero() {
-			posChangeTime = now
-		} else if now.Sub(posChangeTime) > posChangeWarnThreshold && now.After(posChangeWarnTime.Add(posChangeWarnInterval)) {
-			posChangeWarnTime = now
-			miso.Warnf("Binlog pos hasn't changed for a while, last time pos changed was %v, currPos: %+v", posChangeTime.Format(util.StdDateTimeMilliFormat), currPos)
+		if lastBinlogTime.IsZero() {
+			lastBinlogTime = now
+		} else if now.Sub(lastBinlogTime) > binlogWarnTimeThreshold && now.After(lastBinlogWarnTime.Add(binlogWarnInterval)) {
+			lastBinlogWarnTime = now
+			miso.Warnf("Binlog pos hasn't changed for a while, last time binlog event received was %v, currPos: %+v", lastBinlogTime.Format(util.StdDateTimeMilliFormat), currPos)
 		}
 		return
 	}
