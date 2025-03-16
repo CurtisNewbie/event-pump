@@ -1,6 +1,7 @@
 package pump
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -252,10 +253,12 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			return nil
 		default:
 			c = c.NextSpan()
-			ev, err := streamer.GetEvent(c.Context())
+			ctx, deadlineCleanup := context.WithDeadline(c.Context(), time.Now().Add(60*time.Second))
+			ev, err := streamer.GetEvent(ctx)
+			deadlineCleanup()
 			if err != nil {
 				c.Errorf("GetEvent returned error, %v", err)
-				if errors.Is(err, replication.ErrNeedSyncAgain) {
+				if errors.Is(err, replication.ErrNeedSyncAgain) || errors.Is(err, context.DeadlineExceeded) {
 					if atomic.AddInt32(&resyncErrCount, 1) > 9 {
 						return err
 					}
