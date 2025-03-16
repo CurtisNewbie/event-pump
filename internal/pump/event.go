@@ -403,6 +403,8 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			case *replication.RotateEvent:
 				logPos = uint32(t.Position)
 				logFileName = string(t.NextLogName)
+			case *replication.TableMapEvent:
+				// do nothing, see: https://github.com/go-mysql-org/go-mysql/issues/48
 
 			/*
 				- QueryEvent if some DDL is executed
