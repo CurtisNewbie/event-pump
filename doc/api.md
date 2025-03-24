@@ -7,13 +7,6 @@
 - [GET /api/v1/list-pipeline](#get-apiv1list-pipeline)
 - [GET /auth/resource](#get-authresource)
 - [GET /metrics](#get-metrics)
-- [GET /debug/pprof](#get-debugpprof)
-- [GET /debug/pprof/:name](#get-debugpprofname)
-- [GET /debug/pprof/cmdline](#get-debugpprofcmdline)
-- [GET /debug/pprof/profile](#get-debugpprofprofile)
-- [GET /debug/pprof/symbol](#get-debugpprofsymbol)
-- [GET /debug/pprof/trace](#get-debugpproftrace)
-- [GET /doc/api](#get-docapi)
 
 ## POST /api/v1/create-pipeline
 
@@ -43,7 +36,7 @@
   	Table string                   // table name
   	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
   	Stream string                  // event bus name
-  	Condition pump.Condition
+  	Condition Condition
   }
 
   type Condition struct {
@@ -147,7 +140,7 @@
   	Table string                   // table name
   	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
   	Stream string                  // event bus name
-  	Condition pump.Condition
+  	Condition Condition
   }
 
   type Condition struct {
@@ -244,11 +237,16 @@
 
 - Miso HTTP Client (experimental, demo may not work):
   ```go
-  type []ApiPipeline struct {
-  	ErrorCode string `json:"errorCode"` // error code
-  	Msg string `json:"msg"`        // message
-  	Error bool `json:"error"`      // whether the request was successful
-  	Data interface {} `json:"data"` // response data
+  type ApiPipeline struct {
+  	Schema string                  // schema name
+  	Table string                   // table name
+  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string                  // event bus name
+  	Condition Condition
+  }
+
+  type Condition struct {
+  	ColumnChanged []string
   }
 
   func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
@@ -324,20 +322,16 @@
 - Description: Expose resource and endpoint information to other backend service for authorization.
 - Expected Access Scope: PROTECTED
 - JSON Response:
-    - "errorCode": (string) error code
-    - "msg": (string) message
-    - "error": (bool) whether the request was successful
-    - "data": (ResourceInfoRes) response data
-      - "resources": ([]auth.Resource) 
-        - "name": (string) resource name
-        - "code": (string) resource code, unique identifier
-      - "paths": ([]auth.Endpoint) 
-        - "type": (string) access scope type: PROTECTED/PUBLIC
-        - "url": (string) endpoint url
-        - "group": (string) app name
-        - "desc": (string) description of the endpoint
-        - "resCode": (string) resource code
-        - "method": (string) http method
+    - "resources": ([]auth.Resource) 
+      - "name": (string) resource name
+      - "code": (string) resource code, unique identifier
+    - "paths": ([]auth.Endpoint) 
+      - "type": (string) access scope type: PROTECTED/PUBLIC
+      - "url": (string) endpoint url
+      - "group": (string) app name
+      - "desc": (string) description of the endpoint
+      - "resCode": (string) resource code
+      - "method": (string) http method
 - cURL:
   ```sh
   curl -X GET 'http://localhost:8088/auth/resource'
@@ -345,26 +339,33 @@
 
 - Miso HTTP Client (experimental, demo may not work):
   ```go
-  type GnResp struct {
-  	ErrorCode string `json:"errorCode"` // error code
-  	Msg string `json:"msg"`        // message
-  	Error bool `json:"error"`      // whether the request was successful
-  	Data auth.ResourceInfoRes `json:"data"`
-  }
-
   type ResourceInfoRes struct {
-  	Resources []auth.Resource
-  	Paths []auth.Endpoint
+  	Resources []Resource
+  	Paths []Endpoint
   }
 
-  func SendRequest(rail miso.Rail) (GnResp, error) {
-  	var res miso.GnResp[GnResp]
+  type Resource struct {
+  	Name string `json:"name"`      // resource name
+  	Code string `json:"code"`      // resource code, unique identifier
+  }
+
+  type Endpoint struct {
+  	Type string `json:"type"`      // access scope type: PROTECTED/PUBLIC
+  	Url string `json:"url"`        // endpoint url
+  	Group string `json:"group"`    // app name
+  	Desc string `json:"desc"`      // description of the endpoint
+  	ResCode string `json:"resCode"` // resource code
+  	Method string `json:"method"`  // http method
+  }
+
+  func SendRequest(rail miso.Rail) (ResourceInfoRes, error) {
+  	var res miso.GnResp[ResourceInfoRes]
   	err := miso.NewDynTClient(rail, "/auth/resource", "event-pump").
   		Get().
   		Json(&res)
   	if err != nil {
   		rail.Errorf("Request failed, %v", err)
-  		var dat GnResp
+  		var dat ResourceInfoRes
   		return dat, err
   	}
   	dat, err := res.Res()
@@ -377,13 +378,6 @@
 
 - JSON Response Object In TypeScript:
   ```ts
-  export interface GnResp {
-    errorCode?: string;            // error code
-    msg?: string;                  // message
-    error?: boolean;               // whether the request was successful
-    data?: ResourceInfoRes;
-  }
-
   export interface ResourceInfoRes {
     resources?: Resource[];
     paths?: Endpoint[];
@@ -415,14 +409,9 @@
   ) {}
 
   sendRequest() {
-    this.http.get<any>(`/event-pump/auth/resource`)
+    this.http.get<ResourceInfoRes>(`/event-pump/auth/resource`)
       .subscribe({
         next: (resp) => {
-          if (resp.error) {
-            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
-            return;
-          }
-          let dat: ResourceInfoRes = resp.data;
         },
         error: (err) => {
           console.log(err)
@@ -481,351 +470,6 @@
           "Authorization": authorization
         }
       })
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof/:name
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof/:name'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof/:name", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof/:name`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof/cmdline
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof/cmdline'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof/cmdline", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof/cmdline`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof/profile
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof/profile'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof/profile", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof/profile`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof/symbol
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof/symbol'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof/symbol", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof/symbol`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /debug/pprof/trace
-
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/debug/pprof/trace'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/debug/pprof/trace", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/debug/pprof/trace`)
-      .subscribe({
-        next: () => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /doc/api
-
-- Description: Serve the generated API documentation webpage
-- Expected Access Scope: PUBLIC
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/doc/api'
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/doc/api", "event-pump").
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    this.http.get<any>(`/event-pump/doc/api`)
       .subscribe({
         next: () => {
         },

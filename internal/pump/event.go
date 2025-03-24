@@ -40,13 +40,17 @@ const (
 )
 
 var (
-	currPos                 mysql.Position = mysql.Position{Name: "", Pos: 0}
-	nextPos                 mysql.Position = currPos
-	lastBinlogTime          time.Time
-	lastBinlogWarnTime      time.Time
+	currPos            mysql.Position = mysql.Position{Name: "", Pos: 0}
+	nextPos            mysql.Position = currPos
+	lastBinlogTime     time.Time
+	lastBinlogWarnTime time.Time
+	binlogPosHealthy   = true
+	posMu              sync.RWMutex
+)
+
+const (
 	binlogWarnTimeThreshold time.Duration = time.Minute * 5
 	binlogWarnInterval      time.Duration = time.Minute * 1
-	posMu                   sync.Mutex
 )
 
 var (
@@ -442,11 +446,18 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 	}
 }
 
+func checkBinlogHealth() bool {
+	posMu.RLock()
+	defer posMu.RUnlock()
+	return binlogPosHealthy
+}
+
 func updatePos(c miso.Rail, p mysql.Position) {
 	posMu.Lock()
 	defer posMu.Unlock()
 
 	lastBinlogTime = time.Now()
+	binlogPosHealthy = true
 	if (p.Name == "" || p.Name == nextPos.Name) && (p.Pos < 1 || p.Pos == nextPos.Pos) {
 		return
 	}
@@ -574,9 +585,15 @@ func FlushPos() {
 	if currPos.Name == nextPos.Name && currPos.Pos == nextPos.Pos {
 		if lastBinlogTime.IsZero() {
 			lastBinlogTime = now
-		} else if now.Sub(lastBinlogTime) > binlogWarnTimeThreshold && now.After(lastBinlogWarnTime.Add(binlogWarnInterval)) {
-			lastBinlogWarnTime = now
-			miso.Warnf("Binlog pos hasn't changed for a while, last time binlog event received was %v, currPos: %+v", lastBinlogTime.Format(util.StdDateTimeMilliFormat), currPos)
+		} else if now.Sub(lastBinlogTime) > binlogWarnTimeThreshold {
+			// log warning message
+			if now.After(lastBinlogWarnTime.Add(binlogWarnInterval)) {
+				lastBinlogWarnTime = now
+				miso.Warnf("Binlog pos hasn't changed for a while, last time binlog event received was %v, currPos: %+v", lastBinlogTime.Format(util.StdDateTimeMilliFormat), currPos)
+			}
+
+			// mark unhealthy
+			binlogPosHealthy = false
 		}
 		return
 	}

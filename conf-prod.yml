@@ -51,6 +51,3 @@ consul:
   enabled: false
   consulAddress: "${CONSUL_HOST}:8500"
   healthCheckUrl: /health
-  healthCheckInterval: 120s
-  healthCheckTimeout: 120s
-  healthCheckFailedDeregisterAfter: 5s

@@ -55,6 +55,9 @@ func PreServerBootstrap(rail miso.Rail) error {
 	// for moon-monorepo project, if event-pump was deployed as a standalone project, then this has no effect
 	prepareResourceForMoon()
 
+	// prepare health indicator
+	prepareHealthIndicator()
+
 	config := LoadConfig()
 	rail.Debugf("Config: %+v", config)
 
@@ -111,7 +114,6 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 	}
 
 	typeRegex := regexp.MustCompile(`^\^\(([^\)]*)\)\$$`)
-	rail.Infof("Loaded local Pipeline configs, %#v", pl)
 	for i, p := range pl {
 		p.Enabled = true
 		if p.Type != "" {
@@ -124,6 +126,7 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 		}
 		pl[i] = p
 	}
+	rail.Infof("Loaded local Pipeline configs, count: %v", len(pl))
 	return pl
 }
 
@@ -485,4 +488,15 @@ func prepareResourceForMoon() {
 			ResCode: DashboardResourceCode,
 			Method:  "*",
 		})
+}
+
+func prepareHealthIndicator() {
+	miso.AddHealthIndicator(miso.HealthIndicator{
+		Name: "Binlog Health Indicator",
+		CheckHealth: func(rail miso.Rail) bool {
+			healthy := checkBinlogHealth()
+			rail.Debugf("Binlog polling is healthy: %v", healthy)
+			return healthy
+		},
+	})
 }
