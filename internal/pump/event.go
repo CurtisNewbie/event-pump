@@ -256,9 +256,13 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			return nil
 		default:
 			c = c.NextSpan()
-			ctx, deadlineCleanup := context.WithDeadline(c.Context(), time.Now().Add(60*time.Second))
-			ev, err := streamer.GetEvent(ctx)
-			deadlineCleanup()
+			var ev *replication.BinlogEvent
+			var err error
+			{
+				ctx, timeoutCleanup := context.WithTimeout(c.Context(), 60*time.Second)
+				ev, err = streamer.GetEvent(ctx)
+				timeoutCleanup()
+			}
 			if err != nil {
 				retry := atomic.AddInt32(&resyncErrCount, 1)
 				if retry > 9 {
