@@ -3,7 +3,6 @@ package pump
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -261,12 +260,12 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			ev, err := streamer.GetEvent(ctx)
 			deadlineCleanup()
 			if err != nil {
-				c.Errorf("GetEvent returned error, %v", err)
-				if errors.Is(err, replication.ErrNeedSyncAgain) || errors.Is(err, context.DeadlineExceeded) {
-					if atomic.AddInt32(&resyncErrCount, 1) > 9 {
-						return err
-					}
+				retry := atomic.AddInt32(&resyncErrCount, 1)
+				if retry > 9 {
+					c.Errorf("GetEvent returned error, abort, already retried %v times, %v", retry, err)
+					return err
 				}
+				c.Errorf("GetEvent returned error, retrying (%v), %v", retry, err)
 				continue // retry GetEvent
 			}
 
