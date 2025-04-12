@@ -32,15 +32,15 @@
 - Miso HTTP Client (experimental, demo may not work):
   ```go
   type ApiPipeline struct {
-  	Schema string                  // schema name
-  	Table string                   // table name
-  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
-  	Stream string                  // event bus name
-  	Condition Condition
+  	Schema string `json:"schema"`  // schema name
+  	Table string `json:"table"`    // table name
+  	EventTypes []string `json:"eventTypes"` // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string `json:"stream"`  // event bus name
+  	Condition Condition `json:"condition"`
   }
 
   type Condition struct {
-  	ColumnChanged []string
+  	ColumnChanged []string `json:"columnChanged"`
   }
 
   func ApiCreatePipeline(rail miso.Rail, req ApiPipeline) error {
@@ -136,15 +136,15 @@
 - Miso HTTP Client (experimental, demo may not work):
   ```go
   type ApiPipeline struct {
-  	Schema string                  // schema name
-  	Table string                   // table name
-  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
-  	Stream string                  // event bus name
-  	Condition Condition
+  	Schema string `json:"schema"`  // schema name
+  	Table string `json:"table"`    // table name
+  	EventTypes []string `json:"eventTypes"` // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string `json:"stream"`  // event bus name
+  	Condition Condition `json:"condition"`
   }
 
   type Condition struct {
-  	ColumnChanged []string
+  	ColumnChanged []string `json:"columnChanged"`
   }
 
   func ApiRemovePipeline(rail miso.Rail, req ApiPipeline) error {
@@ -238,15 +238,15 @@
 - Miso HTTP Client (experimental, demo may not work):
   ```go
   type ApiPipeline struct {
-  	Schema string                  // schema name
-  	Table string                   // table name
-  	EventTypes []string            // event types; INS - Insert, UPD - Update, DEL - Delete
-  	Stream string                  // event bus name
-  	Condition Condition
+  	Schema string `json:"schema"`  // schema name
+  	Table string `json:"table"`    // table name
+  	EventTypes []string `json:"eventTypes"` // event types; INS - Insert, UPD - Update, DEL - Delete
+  	Stream string `json:"stream"`  // event bus name
+  	Condition Condition `json:"condition"`
   }
 
   type Condition struct {
-  	ColumnChanged []string
+  	ColumnChanged []string `json:"columnChanged"`
   }
 
   func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
@@ -340,8 +340,8 @@
 - Miso HTTP Client (experimental, demo may not work):
   ```go
   type ResourceInfoRes struct {
-  	Resources []Resource
-  	Paths []Endpoint
+  	Resources []Resource `json:"resources"`
+  	Paths []Endpoint `json:"paths"`
   }
 
   type Resource struct {
