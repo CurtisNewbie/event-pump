@@ -448,11 +448,11 @@ func PostServerBootstrap(rail miso.Rail) error {
 				syncer.Close()
 				DetachPos(rail)
 				pumpEventWg.Done()
+				miso.Shutdown()
 			}()
 
 			if e := PumpEvents(rail, syncer, streamer); e != nil {
 				rail.Errorf("PumpEvents encountered error: %v, exiting", e)
-				miso.Shutdown()
 				return
 			}
 		}(nrail, streamer)

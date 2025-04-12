@@ -437,15 +437,13 @@ func PumpEvents(rootRail miso.Rail, syncer *replication.BinlogSyncer, streamer *
 			// update position
 			updatePos(rail, mysql.Position{Name: logFileName, Pos: logPos})
 
-			t.ObserveDuration()
+			rail.Infof("binlog event processed, took: %v", t.ObserveDuration())
 
 			if miso.IsShuttingDown() {
 				rail.Info("Server shutting down")
 				return nil
 			}
-
 		}
-
 	}
 }
 
@@ -658,10 +656,11 @@ func ReadPos(rail miso.Rail) (mysql.Position, error) {
 	}
 
 	posMu.Lock()
+	defer posMu.Unlock()
+
 	currPos = pos
 	nextPos = currPos
 	rail.Infof("Last position: %v - %v", pos.Name, pos.Pos)
-	posMu.Unlock()
 
 	return pos, nil
 }
