@@ -246,30 +246,30 @@ func CachedTableInfo(c miso.Rail, schema string, table string) (TableInfo, error
 	return fti, nil
 }
 
-func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
+func PumpEvents(rootRail miso.Rail, syncer *replication.BinlogSyncer, streamer *replication.BinlogStreamer) error {
 	logEvent := miso.GetPropBool(PropLogEvent)
 
 	for {
 		select {
-		case <-c.Context().Done():
-			c.Info("Context cancelled, exiting PumpEvents()")
+		case <-rootRail.Context().Done():
+			rootRail.Info("Context cancelled, exiting PumpEvents()")
 			return nil
 		default:
-			c = c.NextSpan()
+			rail := miso.EmptyRail()
 			var ev *replication.BinlogEvent
 			var err error
 			{
-				ctx, timeoutCleanup := context.WithTimeout(c.Context(), 60*time.Second)
+				ctx, timeoutCleanup := context.WithTimeout(rail.Context(), 60*time.Second)
 				ev, err = streamer.GetEvent(ctx)
 				timeoutCleanup()
 			}
 			if err != nil {
 				retry := atomic.AddInt32(&resyncErrCount, 1)
 				if retry > 9 {
-					c.Errorf("GetEvent returned error, abort, already retried %v times, %v", retry, err)
+					rail.Errorf("GetEvent returned error, abort, already retried %v times, %v", retry, err)
 					return err
 				}
-				c.Errorf("GetEvent returned error, retrying (%v), %v", retry, err)
+				rail.Errorf("GetEvent returned error, retrying (%v), %v", retry, err)
 				continue // retry GetEvent
 			}
 
@@ -278,7 +278,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			if logEvent {
 				evtLogBuf := strings.Builder{}
 				ev.Dump(&evtLogBuf)
-				c.Info(evtLogBuf.String())
+				rail.Info(evtLogBuf.String())
 			}
 
 			/*
@@ -309,7 +309,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 
 					// parse the table
 					if table, ok := parseAlterTable(string(qe.Query)); ok {
-						ResetTableInfoCache(c, string(qe.Schema), table)
+						ResetTableInfoCache(rail, string(qe.Schema), table)
 					}
 				}
 
@@ -323,7 +323,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 					}
 
 					// TODO: this is a problem if the delay is way too high
-					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					tableInfo, e := CachedTableInfo(rail, schema, string(re.Table.Table))
 					if e != nil {
 						return e
 					}
@@ -344,7 +344,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						}
 					}
 
-					if e := callEventHandlers(c, dce); e != nil {
+					if e := callEventHandlers(rail, dce); e != nil {
 						return e
 					}
 				}
@@ -358,7 +358,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						goto event_handle_end
 					}
 
-					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					tableInfo, e := CachedTableInfo(rail, schema, string(re.Table.Table))
 					if e != nil {
 						return e
 					}
@@ -370,7 +370,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						dce.Records = append(dce.Records, Record{After: row})
 					}
 
-					if e := callEventHandlers(c, dce); e != nil {
+					if e := callEventHandlers(rail, dce); e != nil {
 						return e
 					}
 				}
@@ -381,7 +381,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						goto event_handle_end
 					}
 
-					tableInfo, e := CachedTableInfo(c, schema, string(re.Table.Table))
+					tableInfo, e := CachedTableInfo(rail, schema, string(re.Table.Table))
 					if e != nil {
 						return e
 					}
@@ -392,7 +392,7 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 						dce.Records = append(dce.Records, Record{Before: row})
 					}
 
-					if e := callEventHandlers(c, dce); e != nil {
+					if e := callEventHandlers(rail, dce); e != nil {
 						return e
 					}
 				}
@@ -435,12 +435,12 @@ func PumpEvents(c miso.Rail, syncer *replication.BinlogSyncer, streamer *replica
 			}
 
 			// update position
-			updatePos(c, mysql.Position{Name: logFileName, Pos: logPos})
+			updatePos(rail, mysql.Position{Name: logFileName, Pos: logPos})
 
 			t.ObserveDuration()
 
 			if miso.IsShuttingDown() {
-				c.Info("Server shutting down")
+				rail.Info("Server shutting down")
 				return nil
 			}
 
