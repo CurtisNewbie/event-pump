@@ -5,7 +5,7 @@ go 1.22.5
 toolchain go1.23.0
 
 require (
-	github.com/curtisnewbie/miso v0.1.20-0.20250412162111-722874889df1
+	github.com/curtisnewbie/miso v0.1.20
 	github.com/go-mysql-org/go-mysql v1.11.0
 	github.com/go-zookeeper/zk v1.0.4
 	github.com/spf13/cast v1.6.0
