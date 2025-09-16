@@ -2,8 +2,6 @@ module github.com/curtisnewbie/event-pump
 
 go 1.24.4
 
-toolchain go1.24.7
-
 require (
 	github.com/curtisnewbie/miso v0.2.18-0.20250916152948-08c06fee2258
 	github.com/go-mysql-org/go-mysql v1.11.0
