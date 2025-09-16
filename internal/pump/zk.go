@@ -86,7 +86,7 @@ func ZkElectLeader(rail miso.Rail, hook func()) error {
 	defer zkElectMu.Unlock()
 
 	rootp := ZkPathRoot
-	ip := miso.GetLocalIPV4()
+	ip := util.GetLocalIPV4()
 	if err := ZkCreatePer(rootp, nil); err != nil {
 		rail.Infof("Create parent path failed (expected), %v", err)
 	}

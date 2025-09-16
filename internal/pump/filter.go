@@ -2,7 +2,7 @@ package pump
 
 import (
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/slutil"
 )
 
 type Filter interface {
@@ -50,5 +50,5 @@ func NewFilters(p Pipeline) []Filter {
 		return []Filter{noOpFilter{}}
 	}
 
-	return []Filter{columnFilter{util.Distinct(p.Condition.ColumnChanged)}}
+	return []Filter{columnFilter{slutil.Distinct(p.Condition.ColumnChanged)}}
 }

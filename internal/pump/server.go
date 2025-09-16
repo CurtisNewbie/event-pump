@@ -16,6 +16,7 @@ import (
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/slutil"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
@@ -225,7 +226,7 @@ func pipelineTypeRegex(typs []string) string {
 	if len(typs) < 1 {
 		return ""
 	}
-	typs = util.Distinct(typs)
+	typs = slutil.Distinct(typs)
 	sort.Strings(typs)
 	return "^(" + strings.Join(typs, "|") + ")$"
 }
@@ -247,7 +248,7 @@ func copyApiPipelines() []ApiPipeline {
 
 	cp := make([]ApiPipeline, 0, len(pipelineMap))
 	for _, v := range pipelineMap {
-		cvt := util.MapTo(v, func(p Pipeline) ApiPipeline {
+		cvt := slutil.MapTo(v, func(p Pipeline) ApiPipeline {
 			return ApiPipeline{
 				Schema:     p.Schema,
 				Table:      p.Table,
@@ -283,7 +284,7 @@ func RemovePipeline(rail miso.Rail, pipeline Pipeline) {
 	if prev, ok := pipelineMap[pk]; ok {
 		for i, p := range prev {
 			if samePipeline(p, pipeline) {
-				pipelineMap[pk] = util.SliceRemove(pipelineMap[pk], i)
+				pipelineMap[pk] = slutil.SliceRemove(pipelineMap[pk], i)
 				RemoveEventHandler(p.HandlerId)
 				rail.Infof("Removed pipeline: %#v", p)
 				return
@@ -471,7 +472,7 @@ func PostServerBootstrap(rail miso.Rail) error {
 
 func BootstrapServer(args []string) {
 	miso.PreServerBootstrap(PreServerBootstrap)
-	miso.PostServerBootstrapped(PostServerBootstrap)
+	miso.PostServerBootstrap(PostServerBootstrap)
 	miso.BootstrapServer(args)
 }
 

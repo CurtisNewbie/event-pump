@@ -1,8 +1,6 @@
 package client
 
-import (
-	"github.com/curtisnewbie/miso/miso"
-)
+import "github.com/curtisnewbie/miso/miso"
 
 type EventType string
 
@@ -43,7 +41,7 @@ type Condition struct {
 
 func CreatePipeline(rail miso.Rail, req Pipeline) error {
 	var res miso.GnResp[any]
-	err := miso.NewDynTClient(rail, "/api/v1/create-pipeline", "event-pump").
+	err := miso.NewDynClient(rail, "/api/v1/create-pipeline", "event-pump").
 		PostJson(req).
 		Json(&res)
 	if err != nil {
@@ -59,7 +57,7 @@ func CreatePipeline(rail miso.Rail, req Pipeline) error {
 
 func RemovePipeline(rail miso.Rail, req Pipeline) error {
 	var res miso.GnResp[any]
-	err := miso.NewDynTClient(rail, "/api/v1/remove-pipeline", "event-pump").
+	err := miso.NewDynClient(rail, "/api/v1/remove-pipeline", "event-pump").
 		PostJson(req).
 		Json(&res)
 	if err != nil {

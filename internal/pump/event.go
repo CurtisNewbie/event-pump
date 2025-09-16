@@ -15,6 +15,7 @@ import (
 	ms "github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/hash"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/spf13/cast"
@@ -166,7 +167,7 @@ func callEventHandlers(c miso.Rail, dce DataChangeEvent) error {
 	defer hdmu.RUnlock()
 
 	ctx := &EventHandleContext{
-		StreamDispatched: util.NewSet[string](),
+		StreamDispatched: hash.NewSet[string](),
 	}
 
 	for _, handle := range handlers {
@@ -178,7 +179,7 @@ func callEventHandlers(c miso.Rail, dce DataChangeEvent) error {
 }
 
 type EventHandleContext struct {
-	StreamDispatched util.Set[string]
+	StreamDispatched hash.Set[string]
 }
 
 func RemoveEventHandler(handlerId string) {

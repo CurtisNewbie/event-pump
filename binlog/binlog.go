@@ -4,7 +4,7 @@ import (
 	"github.com/curtisnewbie/event-pump/client"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/slutil"
 )
 
 type SubscribeBinlogOption struct {
@@ -55,7 +55,7 @@ func SubscribeBinlogEventsOnBootstrap(p client.Pipeline, concurrency int,
 	rabbit.NewEventPipeline[client.StreamEvent](p.Stream).
 		Listen(concurrency, listener)
 
-	miso.PostServerBootstrapped(func(rail miso.Rail) error {
+	miso.PostServerBootstrap(func(rail miso.Rail) error {
 		return client.CreatePipeline(rail, p)
 	})
 }
@@ -79,7 +79,7 @@ func SubscribeBinlogEventsOnBootstrapV2(opt SubscribeBinlogOption) {
 		ep.LogPayload()
 	}
 
-	miso.PostServerBootstrapped(func(rail miso.Rail) error {
+	miso.PostServerBootstrap(func(rail miso.Rail) error {
 		err := client.CreatePipeline(rail, opt.Pipeline)
 		if err != nil && opt.ContinueOnErr {
 			rail.Errorf("failed to create pipeline, %#v, %v", opt.Pipeline, err)
@@ -115,11 +115,11 @@ func SubscribeBinlogEventsOnBootstrapV3(opt SubscribeBinlogOptionV3) {
 			}
 		}
 		pipe := opt.MergedPipeline.Pipelines[i]
-		miso.PostServerBootstrapped(func(rail miso.Rail) error {
+		miso.PostServerBootstrap(func(rail miso.Rail) error {
 			err := client.CreatePipeline(rail, client.Pipeline{
 				Schema:     pipe.Schema,
 				Table:      pipe.Table,
-				EventTypes: util.SliceCopy(pipe.EventTypes),
+				EventTypes: slutil.SliceCopy(pipe.EventTypes),
 				Stream:     opt.MergedPipeline.Stream,
 				Condition:  pipe.Condition,
 			})
