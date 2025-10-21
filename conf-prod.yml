@@ -48,6 +48,6 @@ local:
 
 # only needed for showing dashboard in moon-monorepo, completely optional
 consul:
-  enabled: false
+  enabled: true
   consulAddress: "${CONSUL_HOST}:8500"
   healthCheckUrl: /health
