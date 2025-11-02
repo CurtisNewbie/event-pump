@@ -6,7 +6,6 @@
 - [POST /api/v1/remove-pipeline](#post-apiv1remove-pipeline)
 - [GET /api/v1/list-pipeline](#get-apiv1list-pipeline)
 - [GET /auth/resource](#get-authresource)
-- [GET /metrics](#get-metrics)
 
 ## POST /api/v1/create-pipeline
 
@@ -43,9 +42,10 @@
   	ColumnChanged []string `json:"columnChanged"`
   }
 
+  // Create new pipeline. Duplicate pipeline is ignored, HA is not supported.
   func ApiCreatePipeline(rail miso.Rail, req ApiPipeline) error {
   	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/api/v1/create-pipeline", "event-pump").
+  	err := miso.NewDynClient(rail, "/api/v1/create-pipeline", "event-pump").
   		PostJson(req).
   		Json(&res)
   	if err != nil {
@@ -60,7 +60,7 @@
   }
   ```
 
-- JSON Request Object In TypeScript:
+- JSON Request / Response Object In TypeScript:
   ```ts
   export interface ApiPipeline {
     schema?: string;               // schema name
@@ -73,10 +73,7 @@
   export interface Condition {
     columnChanged?: string[];
   }
-  ```
 
-- JSON Response Object In TypeScript:
-  ```ts
   export interface Resp {
     errorCode?: string;            // error code
     msg?: string;                  // message
@@ -147,9 +144,10 @@
   	ColumnChanged []string `json:"columnChanged"`
   }
 
+  // Remove existing pipeline. HA is not supported.
   func ApiRemovePipeline(rail miso.Rail, req ApiPipeline) error {
   	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/api/v1/remove-pipeline", "event-pump").
+  	err := miso.NewDynClient(rail, "/api/v1/remove-pipeline", "event-pump").
   		PostJson(req).
   		Json(&res)
   	if err != nil {
@@ -164,7 +162,7 @@
   }
   ```
 
-- JSON Request Object In TypeScript:
+- JSON Request / Response Object In TypeScript:
   ```ts
   export interface ApiPipeline {
     schema?: string;               // schema name
@@ -177,10 +175,7 @@
   export interface Condition {
     columnChanged?: string[];
   }
-  ```
 
-- JSON Response Object In TypeScript:
-  ```ts
   export interface Resp {
     errorCode?: string;            // error code
     msg?: string;                  // message
@@ -249,9 +244,10 @@
   	ColumnChanged []string `json:"columnChanged"`
   }
 
+  // List existing pipeline. HA is not supported.
   func ApiListPipelines(rail miso.Rail) ([]ApiPipeline, error) {
   	var res miso.GnResp[[]ApiPipeline]
-  	err := miso.NewDynTClient(rail, "/api/v1/list-pipeline", "event-pump").
+  	err := miso.NewDynClient(rail, "/api/v1/list-pipeline", "event-pump").
   		Get().
   		Json(&res)
   	if err != nil {
@@ -267,7 +263,7 @@
   }
   ```
 
-- JSON Response Object In TypeScript:
+- JSON Request / Response Object In TypeScript:
   ```ts
   export interface Resp {
     errorCode?: string;            // error code
@@ -358,9 +354,10 @@
   	Method string `json:"method"`  // http method
   }
 
+  // Expose resource and endpoint information to other backend service for authorization.
   func SendRequest(rail miso.Rail) (ResourceInfoRes, error) {
   	var res miso.GnResp[ResourceInfoRes]
-  	err := miso.NewDynTClient(rail, "/auth/resource", "event-pump").
+  	err := miso.NewDynClient(rail, "/auth/resource", "event-pump").
   		Get().
   		Json(&res)
   	if err != nil {
@@ -376,7 +373,7 @@
   }
   ```
 
-- JSON Response Object In TypeScript:
+- JSON Request / Response Object In TypeScript:
   ```ts
   export interface ResourceInfoRes {
     resources?: Resource[];
@@ -412,66 +409,6 @@
     this.http.get<ResourceInfoRes>(`/event-pump/auth/resource`)
       .subscribe({
         next: (resp) => {
-        },
-        error: (err) => {
-          console.log(err)
-          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
-        }
-      });
-  }
-  ```
-
-## GET /metrics
-
-- Description: Collect prometheus metrics information
-- Header Parameter:
-  - "Authorization": Basic authorization if enabled
-- cURL:
-  ```sh
-  curl -X GET 'http://localhost:8088/metrics' \
-    -H 'Authorization: '
-  ```
-
-- Miso HTTP Client (experimental, demo may not work):
-  ```go
-  func SendRequest(rail miso.Rail, authorization string) error {
-  	var res miso.GnResp[any]
-  	err := miso.NewDynTClient(rail, "/metrics", "event-pump").
-  		AddHeader("authorization", authorization).
-  		Get().
-  		Json(&res)
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  		return err
-  	}
-  	err = res.Err()
-  	if err != nil {
-  		rail.Errorf("Request failed, %v", err)
-  	}
-  	return err
-  }
-  ```
-
-- Angular HttpClient Demo:
-  ```ts
-  import { MatSnackBar } from "@angular/material/snack-bar";
-  import { HttpClient } from "@angular/common/http";
-
-  constructor(
-    private snackBar: MatSnackBar,
-    private http: HttpClient
-  ) {}
-
-  sendRequest() {
-    let authorization: any | null = null;
-    this.http.get<any>(`/event-pump/metrics`,
-      {
-        headers: {
-          "Authorization": authorization
-        }
-      })
-      .subscribe({
-        next: () => {
         },
         error: (err) => {
           console.log(err)

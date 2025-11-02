@@ -6,7 +6,7 @@ app.name: 'event-pump'
 server:
   host: "localhost"
   port: 8088
-  generate-endpoint-doc:
+  api-doc:
     file: "./doc/api.md"
 
 rabbitmq:
@@ -45,5 +45,5 @@ filter:
 # only needed for showing dashboard in moon-monorepo, completely optional
 consul:
   enabled: false
-  consulAddress: localhost:8500
-  healthCheckUrl: /health
+  consul-address: "localhost:8500"
+  health-check-url: /health
