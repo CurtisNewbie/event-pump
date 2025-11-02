@@ -17,6 +17,7 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 	"github.com/curtisnewbie/miso/util/slutil"
+	"github.com/curtisnewbie/miso/util/strutil"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
@@ -121,7 +122,7 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 			sub := typeRegex.FindStringSubmatch(p.Type)
 			rail.Debugf("sub: %v", sub)
 			if len(sub) > 1 {
-				p.Types = strings.Split(sub[1], "|")
+				p.Types = strutil.SplitStr(sub[1], "|")
 				p.Type = pipelineTypeRegex(p.Types)
 			}
 		}
