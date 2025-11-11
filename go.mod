@@ -3,7 +3,7 @@ module github.com/curtisnewbie/event-pump
 go 1.24.4
 
 require (
-	github.com/curtisnewbie/miso v0.3.0-beta.1
+	github.com/curtisnewbie/miso v0.3.9
 	github.com/go-mysql-org/go-mysql v1.11.0
 	github.com/go-zookeeper/zk v1.0.4
 	github.com/spf13/cast v1.6.0
@@ -31,6 +31,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/gops v0.3.28 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/consul/api v1.15.3 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -92,13 +93,14 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
-	golang.org/x/tools v0.33.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9 // indirect
+	golang.org/x/mod v0.28.0 // indirect
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/tools v0.37.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect

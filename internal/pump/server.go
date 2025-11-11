@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/async"
 	"github.com/curtisnewbie/miso/util/slutil"
 	"github.com/curtisnewbie/miso/util/strutil"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -26,6 +28,10 @@ const (
 	PropPipelineConfigFile = "local.pipelines.file"
 
 	DashboardResourceCode = "event-pump-dashboard"
+)
+
+var (
+	asyncDispatchMQPool async.AsyncPool
 )
 
 var (
@@ -50,6 +56,16 @@ var (
 
 func init() {
 	miso.SetDefProp(PropPipelineConfigFile, "pipelines.json")
+
+	procs := runtime.GOMAXPROCS(0)
+	if procs < 4 {
+		procs = 4
+	} else if procs > 12 {
+		procs = 12
+	}
+	asyncDispatchMQPool = async.NewAntsAsyncPool(procs)
+	miso.Infof("Created AsyncDispatchMQPool with size: %v", procs)
+	miso.AddAsyncShutdownHook(func() { asyncDispatchMQPool.StopAndWait() })
 }
 
 func PreServerBootstrap(rail miso.Rail) error {
@@ -339,6 +355,9 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 	// Declare Stream
 	rabbit.NewEventBus(pipeline.Stream)
 
+	var dispatchErr error
+	dispatchErrMut := &sync.RWMutex{}
+
 	handlerId := OnEventReceived(func(c miso.Rail, dce DataChangeEvent, ctx *EventHandleContext) error {
 		if !schemaPattern.MatchString(dce.Schema) {
 			c.Debugf("schema pattern not matched, event ignored, %v", dce.Schema)
@@ -373,26 +392,46 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 			return nil
 		}
 
-		for _, evt := range events {
-			anyMatch := false
-			for _, filter := range filters {
-				if filter.Include(c, evt) {
-					anyMatch = true
-					break
-				}
-			}
-
-			if anyMatch {
-				ctx.StreamDispatched.Add(pipeline.Stream)
-				if err := rabbit.PubEventBus(c, evt, pipeline.Stream); err != nil {
-					return err
-				}
-				if !isProd {
-					c.Infof("Event Pipeline triggered, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
-						pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
-				}
-			}
+		dispatchErrMut.RLock()
+		if dispatchErr != nil {
+			defer dispatchErrMut.RUnlock()
+			return dispatchErr
 		}
+		dispatchErrMut.RUnlock()
+
+		// for higher throughput, processing a few extra events before we notice the error is acceptable
+		asyncDispatchMQPool.Run(func() error {
+
+			for _, evt := range events {
+				anyMatch := false
+				for _, filter := range filters {
+					if filter.Include(c, evt) {
+						anyMatch = true
+						break
+					}
+				}
+
+				if anyMatch {
+					ctx.StreamDispatched.Add(pipeline.Stream)
+					if err := rabbit.PubEventBus(c, evt, pipeline.Stream); err != nil {
+						return err
+					}
+					if !isProd {
+						c.Infof("Event Pipeline triggered, schema: '%v', table: '%v', type: '%v', event-bus: %s, conditions: %+v",
+							pipeline.Schema, pipeline.Table, pipeline.Type, pipeline.Stream, pipeline.Condition)
+					}
+				}
+			}
+			return nil
+
+		}).ThenErr(func(err error) {
+			if err != nil {
+				dispatchErrMut.Lock()
+				defer dispatchErrMut.Unlock()
+				dispatchErr = err
+			}
+		})
+
 		return nil
 	})
 
