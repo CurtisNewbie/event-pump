@@ -16,8 +16,8 @@ import (
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/curtisnewbie/miso/util"
 	"github.com/curtisnewbie/miso/util/async"
+	"github.com/curtisnewbie/miso/util/osutil"
 	"github.com/curtisnewbie/miso/util/slutil"
 	"github.com/curtisnewbie/miso/util/strutil"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -119,7 +119,7 @@ func loadLocalConfigs(rail miso.Rail) []Pipeline {
 		return []Pipeline{}
 	}
 	pl := []Pipeline{}
-	c, err := util.ReadFileAll(fn)
+	c, err := osutil.ReadFileAll(fn)
 	if err != nil {
 		rail.Infof("Read local config file failed, %v", err)
 		return pl
@@ -164,7 +164,7 @@ func saveLocalConfigs() {
 	var pl []Pipeline = copyPipelines()
 	rail := miso.EmptyRail()
 
-	f, err := util.ReadWriteFile(wbuf)
+	f, err := osutil.OpenRWFile(wbuf)
 	if err != nil {
 		rail.Errorf("Failed to save local config file, '%v', %v", wbuf, err)
 		return

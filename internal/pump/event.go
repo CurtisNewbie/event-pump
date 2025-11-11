@@ -16,6 +16,7 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 	"github.com/curtisnewbie/miso/util/hash"
+	"github.com/curtisnewbie/miso/util/osutil"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/spf13/cast"
@@ -556,7 +557,7 @@ func AttachPos(rail miso.Rail) error {
 func attachLocalPosFile(rail miso.Rail) error {
 	pf := miso.GetPropStr(PropSyncPosFile)
 	rail.Infof("Attaching to pos file: %v", pf)
-	f, err := util.ReadWriteFile(pf)
+	f, err := osutil.OpenRWFile(pf)
 	if err != nil {
 		return fmt.Errorf("failed to attach to pos file: %v, %w", pf, err)
 	}
@@ -672,7 +673,7 @@ func attachZkPosFile(rail miso.Rail) error {
 		// node doesn't exist
 		pf := miso.GetPropStr(PropSyncPosFile)
 		if pf != "" {
-			if f, err := util.ReadFileAll(pf); err == nil {
+			if f, err := osutil.ReadFileAll(pf); err == nil {
 				if er := ZkWritePos(f); er != nil {
 					rail.Warnf("Unable to find pos node on Zookeeper. Attempted to fallback to local pos file but failed, %v", er)
 				}
