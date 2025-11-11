@@ -393,9 +393,9 @@ func AddPipeline(rail miso.Rail, pipeline Pipeline) error {
 		}
 
 		dispatchErrMut.RLock()
-		if dispatchErr != nil {
+		if err := dispatchErr; err != nil {
 			defer dispatchErrMut.RUnlock()
-			return dispatchErr
+			return err
 		}
 		dispatchErrMut.RUnlock()
 
