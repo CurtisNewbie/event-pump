@@ -31,6 +31,7 @@ sync:
   port: 3306
   pos.file: "/usr/src/data/binlog_pos"
   max-reconnect: 30
+  log-event: false
 
 ha:
   enabled: false
