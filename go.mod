@@ -3,7 +3,7 @@ module github.com/curtisnewbie/event-pump
 go 1.24.4
 
 require (
-	github.com/curtisnewbie/miso v0.3.9
+	github.com/curtisnewbie/miso v0.4.0-beta.6.0.20251119143150-f899edf6e9da
 	github.com/go-mysql-org/go-mysql v1.11.0
 	github.com/go-zookeeper/zk v1.0.4
 	github.com/spf13/cast v1.6.0

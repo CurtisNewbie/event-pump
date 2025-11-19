@@ -14,9 +14,11 @@ import (
 
 	ms "github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/atom"
 	"github.com/curtisnewbie/miso/util/hash"
 	"github.com/curtisnewbie/miso/util/osutil"
+	"github.com/curtisnewbie/miso/util/randutil"
+	"github.com/curtisnewbie/miso/util/strutil"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/spf13/cast"
@@ -93,6 +95,11 @@ func init() {
 	miso.SetDefProp(PropSyncMaxReconnect, 120)
 }
 
+type Position struct {
+	Name string
+	Pos  uint32
+}
+
 type Record struct {
 	Before []interface{} `json:"before"`
 	After  []interface{} `json:"after"`
@@ -155,7 +162,7 @@ func OnEventReceived(handler EventHandler) string {
 	hdmu.Lock()
 	defer hdmu.Unlock()
 	for {
-		id := util.ERand(32)
+		id := randutil.ERand(32)
 		if _, ok := handlers[id]; !ok {
 			handlers[id] = handler
 			return id
@@ -592,7 +599,7 @@ func FlushPos() {
 			// log warning message
 			if now.After(lastBinlogWarnTime.Add(binlogWarnInterval)) {
 				lastBinlogWarnTime = now
-				miso.Warnf("Binlog pos hasn't changed for a while, last time binlog event received was %v, currPos: %+v", lastBinlogTime.Format(util.StdDateTimeMilliFormat), currPos)
+				miso.Warnf("Binlog pos hasn't changed for a while, last time binlog event received was %v, currPos: %+v", lastBinlogTime.Format(atom.StdDateTimeMilliFormat), currPos)
 			}
 
 			// mark unhealthy
@@ -600,7 +607,7 @@ func FlushPos() {
 		}
 		return
 	}
-	s, e := json.Marshal(nextPos)
+	s, e := json.Marshal(Position(nextPos))
 	if e != nil {
 		miso.Errorf("failed to update posFile, unable to marshal pos %+v, %v", nextPos, e)
 		return
@@ -646,25 +653,26 @@ func ReadPos(rail miso.Rail) (mysql.Position, error) {
 		rail.Infof("Binlog position missing, fetched from master node, %#v", ms)
 		return mysql.Position{Name: ms.File, Pos: cast.ToUint32(ms.Position)}, nil // the latest binlog
 	}
-	s := util.UnsafeByt2Str(byt)
+	s := strutil.UnsafeByt2Str(byt)
 	if s == "" {
 		return mysql.Position{}, nil
 	}
 
-	var pos mysql.Position
+	var pos Position
 	e := json.Unmarshal([]byte(s), &pos)
 	if e != nil {
 		return mysql.Position{}, e
 	}
+	mpos := mysql.Position(pos)
 
 	posMu.Lock()
 	defer posMu.Unlock()
 
-	currPos = pos
+	currPos = mpos
 	nextPos = currPos
 	rail.Infof("Last position: %v - %v", pos.Name, pos.Pos)
 
-	return pos, nil
+	return mpos, nil
 }
 
 func attachZkPosFile(rail miso.Rail) error {

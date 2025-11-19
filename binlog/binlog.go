@@ -119,7 +119,7 @@ func SubscribeBinlogEventsOnBootstrapV3(opt SubscribeBinlogOptionV3) {
 			err := client.CreatePipeline(rail, client.Pipeline{
 				Schema:     pipe.Schema,
 				Table:      pipe.Table,
-				EventTypes: slutil.SliceCopy(pipe.EventTypes),
+				EventTypes: slutil.Copy(pipe.EventTypes),
 				Stream:     opt.MergedPipeline.Stream,
 				Condition:  pipe.Condition,
 			})

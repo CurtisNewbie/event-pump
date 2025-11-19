@@ -4,7 +4,7 @@ import "github.com/curtisnewbie/miso/miso"
 
 type Condition struct {
 	// name of columns that change in an binlog event.
-	ColumnChanged []string `mapstructure:"column-changed"`
+	ColumnChanged []string `mapstructure:"column-changed" json:"columnChanged"`
 }
 
 type Pipeline struct {
@@ -12,16 +12,16 @@ type Pipeline struct {
 	HandlerId string `json:"-"`
 
 	// schema name.
-	Schema string
+	Schema string `json:"schema"`
 
 	// table name.
-	Table string
+	Table string `json:"table"`
 
 	// event bus name.
-	Stream string
+	Stream string `json:"stream"`
 
 	// event type regexp.
-	Type string
+	Type string `json:"type"`
 
 	// event types: INS, UPD, DEL.
 	Types []string `json:"-"`
@@ -32,7 +32,7 @@ type Pipeline struct {
 	Enabled bool `json:"-"`
 
 	// extra filtering conditions
-	Condition Condition `mapstructure:"condition"`
+	Condition Condition `mapstructure:"condition" json:"condition"`
 }
 
 type GlobalFilter struct {

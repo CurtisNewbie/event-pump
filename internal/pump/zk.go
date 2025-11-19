@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/curtisnewbie/miso/util"
+	"github.com/curtisnewbie/miso/util/iputil"
+	"github.com/curtisnewbie/miso/util/strutil"
 	"github.com/go-zookeeper/zk"
 )
 
@@ -86,7 +87,7 @@ func ZkElectLeader(rail miso.Rail, hook func()) error {
 	defer zkElectMu.Unlock()
 
 	rootp := ZkPathRoot
-	ip := util.GetLocalIPV4()
+	ip := iputil.GetLocalIPV4()
 	if err := ZkCreatePer(rootp, nil); err != nil {
 		rail.Infof("Create parent path failed (expected), %v", err)
 	}
@@ -120,7 +121,7 @@ func ZkElectLeader(rail miso.Rail, hook func()) error {
 		}()
 	}
 
-	err := ZkCreateEph(leaderp, util.UnsafeStr2Byt(ip))
+	err := ZkCreateEph(leaderp, strutil.UnsafeStr2Byt(ip))
 	if err != nil {
 		if errors.Is(err, zk.ErrNodeExists) {
 			rail.Info("Another event-pump instance is already running, waiting to become leader")

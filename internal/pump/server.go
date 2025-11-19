@@ -5,18 +5,17 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"runtime"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/curtisnewbie/miso/encoding/json"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util/async"
+	"github.com/curtisnewbie/miso/util/json"
 	"github.com/curtisnewbie/miso/util/osutil"
 	"github.com/curtisnewbie/miso/util/slutil"
 	"github.com/curtisnewbie/miso/util/strutil"
@@ -57,13 +56,8 @@ var (
 func init() {
 	miso.SetDefProp(PropPipelineConfigFile, "pipelines.json")
 
-	procs := runtime.GOMAXPROCS(0)
-	if procs < 4 {
-		procs = 4
-	} else if procs > 12 {
-		procs = 12
-	}
-	asyncDispatchMQPool = async.NewAntsAsyncPool(procs)
+	procs := async.CalcPoolSize(1, 4, 12)
+	asyncDispatchMQPool = async.NewAsyncPool(procs)
 	miso.Infof("Created AsyncDispatchMQPool with size: %v", procs)
 	miso.AddAsyncShutdownHook(func() { asyncDispatchMQPool.StopAndWait() })
 }
@@ -221,11 +215,11 @@ func sameCondition(a Condition, b Condition) bool {
 }
 
 type ApiPipeline struct {
-	Schema     string    `desc:"schema name"`
-	Table      string    `desc:"table name"`
-	EventTypes []string  `desc:"event types; INS - Insert, UPD - Update, DEL - Delete"`
-	Stream     string    `desc:"event bus name"`
-	Condition  Condition `desc:"extra filtering conditions"`
+	Schema     string    `desc:"schema name" json:"schema"`
+	Table      string    `desc:"table name" json:"table"`
+	EventTypes []string  `desc:"event types; INS - Insert, UPD - Update, DEL - Delete" json:"eventTypes"`
+	Stream     string    `desc:"event bus name" json:"stream"`
+	Condition  Condition `desc:"extra filtering conditions" json:"condition"`
 }
 
 func (p ApiPipeline) Pipeline() Pipeline {
@@ -243,7 +237,7 @@ func pipelineTypeRegex(typs []string) string {
 	if len(typs) < 1 {
 		return ""
 	}
-	typs = slutil.Distinct(typs)
+	typs = slutil.FilterEmptyStrFunc()(slutil.Distinct(typs))
 	sort.Strings(typs)
 	return "^(" + strings.Join(typs, "|") + ")$"
 }
@@ -301,7 +295,7 @@ func RemovePipeline(rail miso.Rail, pipeline Pipeline) {
 	if prev, ok := pipelineMap[pk]; ok {
 		for i, p := range prev {
 			if samePipeline(p, pipeline) {
-				pipelineMap[pk] = slutil.SliceRemove(pipelineMap[pk], i)
+				pipelineMap[pk] = slutil.Remove(pipelineMap[pk], i)
 				RemoveEventHandler(p.HandlerId)
 				rail.Infof("Removed pipeline: %#v", p)
 				return
